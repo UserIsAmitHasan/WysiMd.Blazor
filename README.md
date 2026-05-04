@@ -5,8 +5,8 @@
 <h1 align="center">WysiMd.Blazor</h1>
 
 <p align="center">
-  <a href="https://github.com/autorior/WysiMd.Blazor/actions/workflows/ci.yml">
-    <img src="https://github.com/autorior/WysiMd.Blazor/actions/workflows/ci.yml/badge.svg" alt="CI" />
+  <a href="https://github.com/UserIsAmitHasan/WysiMd.Blazor/actions/workflows/ci.yml">
+    <img src="https://github.com/UserIsAmitHasan/WysiMd.Blazor/actions/workflows/ci.yml/badge.svg" alt="CI" />
   </a>
   <a href="https://www.nuget.org/packages/WysiMd.Blazor">
     <img src="https://img.shields.io/nuget/v/WysiMd.Blazor" alt="NuGet" />
