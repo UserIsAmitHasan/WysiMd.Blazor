@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <clipPath id="content-clip">
+      <rect x="36" y="68" width="184" height="150"/>
+    </clipPath>
+  </defs>
+
+  <!-- Outer background -->
+  <rect width="256" height="256" rx="44" fill="#12093A"/>
+
+  <!-- Editor card -->
+  <rect x="24" y="28" width="208" height="200" rx="14" fill="#F2F0FF"/>
+
+  <!-- Toolbar -->
+  <rect x="24" y="28" width="208" height="38" rx="14" fill="#512BD4"/>
+  <rect x="24" y="48" width="208" height="18" fill="#512BD4"/>
+
+  <!-- Toolbar pill hints -->
+  <rect x="38" y="38" width="20" height="8" rx="4" fill="white" opacity="0.55"/>
+  <rect x="66" y="38" width="20" height="8" rx="4" fill="white" opacity="0.55"/>
+  <rect x="94" y="40" width="2" height="6" rx="1" fill="white" opacity="0.3"/>
+  <rect x="104" y="38" width="20" height="8" rx="4" fill="white" opacity="0.55"/>
+
+  <!-- "md" text + cursor, clipped to content area -->
+  <g clip-path="url(#content-clip)">
+    <text
+      x="36"
+      y="200"
+      font-family="'Segoe UI', Arial, sans-serif"
+      font-weight="800"
+      font-size="108"
+      fill="#37209C"
+      letter-spacing="-2">md</text>
+  </g>
+
+  <!-- Cursor — height matches cap-height (~78px), aligned to text top -->
+  <rect x="210" y="122" width="10" height="78" rx="2" fill="#512BD4"/>
+</svg>

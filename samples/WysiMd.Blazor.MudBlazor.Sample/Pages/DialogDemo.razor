@@ -1,0 +1,43 @@
+@page "/demo/dialog"
+@inject IDialogService DialogService
+
+<PageTitle>In MudDialog — MudBlazor Sample</PageTitle>
+
+<MudText Typo="Typo.h5" GutterBottom="true">Editor Inside a MudDialog</MudText>
+<MudText Class="mb-4">
+    Open a <code>MarkdownEditor</code> inside a MudDialog for modal editing workflows,
+    such as editing a comment or note without leaving the page.
+</MudText>
+
+<MudButton Variant="Variant.Filled" Color="Color.Primary"
+    StartIcon="@Icons.Material.Filled.Edit"
+    OnClick="OpenEditor">
+    Open Editor
+</MudButton>
+
+@if (!string.IsNullOrEmpty(savedContent))
+{
+    <MudCard Class="mt-4">
+        <MudCardHeader>
+            <CardHeaderContent>
+                <MudText Typo="Typo.subtitle1">Saved Content</MudText>
+            </CardHeaderContent>
+        </MudCardHeader>
+        <MudCardContent>
+            <MudText Typo="Typo.body2" Style="white-space:pre-wrap;font-family:monospace">@savedContent</MudText>
+        </MudCardContent>
+    </MudCard>
+}
+
+@code {
+    private string savedContent = string.Empty;
+
+    private async Task OpenEditor()
+    {
+        var options = new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<EditorDialog>("Edit Content", options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: string md })
+            savedContent = md;
+    }
+}

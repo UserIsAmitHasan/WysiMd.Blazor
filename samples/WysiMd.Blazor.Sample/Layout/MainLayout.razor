@@ -1,0 +1,25 @@
+@inherits LayoutComponentBase
+
+<div class="app-shell">
+    <nav class="app-nav">
+        <a href="/" class="logo">WysiMd.Blazor</a>
+
+        <span class="nav-section">Demos</span>
+        <a href="/demo/basic">Basic Usage</a>
+        <a href="/demo/options">Options</a>
+        <a href="/demo/dark-theme">Dark Theme</a>
+        <a href="/demo/readonly">Read Only</a>
+        <a href="/demo/toolbar">Toolbar Customization</a>
+        <a href="/demo/form">Form Integration</a>
+        <a href="/demo/mobile">Mobile View</a>
+
+        <span class="nav-section">Links</span>
+        <a href="https://github.com/autorior/WysiMd.Blazor" target="_blank">GitHub</a>
+        <a href="https://www.nuget.org/packages/WysiMd.Blazor" target="_blank">NuGet</a>
+        <a href="/docs">Docs</a>
+    </nav>
+
+    <main class="app-content">
+        @Body
+    </main>
+</div>

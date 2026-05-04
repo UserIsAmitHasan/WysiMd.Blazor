@@ -1,0 +1,21 @@
+@page "/demo/basic"
+
+<PageTitle>Basic Usage — MudBlazor Sample</PageTitle>
+
+<MudText Typo="Typo.h5" GutterBottom="true">Basic Usage</MudText>
+<MudText Class="mb-4">Drop <code>MarkdownEditor</code> anywhere in a MudBlazor page — no extra wiring needed.</MudText>
+
+<MarkdownEditor @bind-Value="content" @bind-IsDarkTheme="isDark" />
+
+<MudDivider Class="my-4" />
+
+<MudExpansionPanels>
+    <MudExpansionPanel Text="Current Markdown Value">
+        <MudText Typo="Typo.body2" Style="white-space:pre-wrap;font-family:monospace">@content</MudText>
+    </MudExpansionPanel>
+</MudExpansionPanels>
+
+@code {
+    private bool isDark = false;
+    private string content = "# Hello from MudBlazor!\n\nWysiMd.Blazor works alongside **MudBlazor** without style conflicts.\n\nBoth use CSS custom properties — each scoped to their own namespace.";
+}

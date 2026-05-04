@@ -1,0 +1,26 @@
+@page "/demo/basic"
+
+<PageTitle>Basic Usage — WysiMd.Blazor</PageTitle>
+
+<h1>Basic Usage</h1>
+<p>The simplest integration: bind <code>Value</code> and you're done.</p>
+
+<pre><code>@@using WysiMd.Blazor
+
+&lt;MarkdownEditor @@bind-Value="content" /&gt;
+
+@@code {
+    private string content = "# Hello, World!\n\nStart editing...";
+}</code></pre>
+
+<div class="demo-block">
+    <div class="demo-block-header">Live Demo</div>
+    <MarkdownEditor @bind-Value="content" />
+</div>
+
+<h2>Current Value</h2>
+<pre style="max-height:200px;overflow:auto">@content</pre>
+
+@code {
+    private string content = "# Hello, World!\n\nThis is **WysiMd.Blazor** — a WYSIWYG Markdown editor for Blazor.\n\n## Features\n\n- Visual and Raw editing modes\n- 20+ toolbar actions\n- Dark / light theme\n- Mobile friendly\n\nStart editing to see the live value below!";
+}

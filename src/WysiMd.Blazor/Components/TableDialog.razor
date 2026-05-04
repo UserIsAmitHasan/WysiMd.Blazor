@@ -1,0 +1,58 @@
+﻿@namespace WysiMd.Blazor.Components
+
+@if (IsVisible)
+{
+    <div class="wysimd-overlay @(IsDarkTheme ? "wysimd-dark" : "")" @onmousedown="OnOverlayMouseDown" @onmouseup="OnOverlayMouseUp">
+        <div class="wysimd-dialog" 
+             @onmousedown:stopPropagation="true" 
+             @onmouseup:stopPropagation="true"
+             @onmouseup="() => _mouseDownOnOverlay = false">
+            <h3>Insert Table</h3>
+
+            <label>Rows (including header)</label>
+            <input type="number" @bind="_rows" min="2" max="20" />
+
+            <label>Columns</label>
+            <input type="number" @bind="_cols" min="1" max="10" />
+
+            <div class="wysimd-dialog-actions">
+                <button class="wysimd-btn wysimd-btn-secondary" @onclick="Cancel">Cancel</button>
+                <button class="wysimd-btn wysimd-btn-primary" @onclick="Confirm">Insert Table</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public bool IsDarkTheme { get; set; }
+    [Parameter] public EventCallback<TableResult> OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private int _rows = 3;
+    private int _cols = 3;
+    private bool _mouseDownOnOverlay = false;
+
+    private async Task Confirm()
+    {
+        await OnConfirm.InvokeAsync(new TableResult(_rows, _cols));
+    }
+
+    private async Task Cancel() => await OnCancel.InvokeAsync();
+
+    private void OnOverlayMouseDown()
+    {
+        _mouseDownOnOverlay = true;
+    }
+
+    private async Task OnOverlayMouseUp()
+    {
+        if (_mouseDownOnOverlay)
+        {
+            await Cancel();
+        }
+        _mouseDownOnOverlay = false;
+    }
+
+    public record TableResult(int Rows, int Cols);
+}

@@ -1,0 +1,63 @@
+@page "/demo/form"
+
+<PageTitle>Form Integration — WysiMd.Blazor</PageTitle>
+
+<h1>Form Integration</h1>
+<p>
+    <code>MarkdownEditor</code> works inside a standard Blazor <code>EditForm</code>.
+    Use <code>OnChange</code> to sync the editor value into your model field.
+</p>
+
+<EditForm Model="model" OnValidSubmit="HandleSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div style="margin-bottom:1rem">
+        <label style="display:block;margin-bottom:.4rem;font-weight:600">Title</label>
+        <InputText @bind-Value="model.Title"
+            style="width:100%;padding:.5rem .75rem;border:1px solid #dee2e6;border-radius:6px;font-size:1rem" />
+        <ValidationMessage For="() => model.Title" />
+    </div>
+
+    <div style="margin-bottom:1rem">
+        <label style="display:block;margin-bottom:.4rem;font-weight:600">Body <span style="color:#6c757d;font-weight:400">(Markdown)</span></label>
+        <MarkdownEditor @bind-Value="model.Body"
+            Options="@(new EditorOptions { MinHeight = "300px", ShowStatusBar = true })" />
+        <ValidationMessage For="() => model.Body" />
+    </div>
+
+    <button type="submit"
+        style="padding:.5rem 1.5rem;background:#0d6efd;color:#fff;border:none;border-radius:6px;font-size:1rem;cursor:pointer">
+        Submit
+    </button>
+</EditForm>
+
+@if (submitted)
+{
+    <div style="margin-top:2rem;padding:1rem;background:#d1e7dd;border-radius:8px">
+        <strong>Submitted!</strong>
+        <p>Title: @model.Title</p>
+        <p>Body length: @model.Body.Length characters</p>
+    </div>
+}
+
+@code {
+    private PostModel model = new();
+    private bool submitted = false;
+
+    private void HandleSubmit()
+    {
+        submitted = true;
+    }
+
+    private class PostModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Title is required")]
+        [System.ComponentModel.DataAnnotations.StringLength(120, ErrorMessage = "Title must be 120 characters or fewer")]
+        public string Title { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Body is required")]
+        [System.ComponentModel.DataAnnotations.MinLength(10, ErrorMessage = "Body must be at least 10 characters")]
+        public string Body { get; set; } = string.Empty;
+    }
+}

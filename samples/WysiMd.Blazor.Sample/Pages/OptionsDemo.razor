@@ -1,0 +1,50 @@
+@page "/demo/options"
+
+<PageTitle>Options — WysiMd.Blazor</PageTitle>
+
+<h1>EditorOptions Playground</h1>
+<p>Toggle options and watch the editor update live.</p>
+
+<div class="control-row">
+    <label><input type="checkbox" @bind="showToolbar" /> Show Toolbar</label>
+    <label><input type="checkbox" @bind="showStatusBar" /> Show Status Bar</label>
+    <label><input type="checkbox" @bind="readOnly" /> Read Only</label>
+    <label><input type="checkbox" @bind="spellCheck" /> Spell Check</label>
+    <label>
+        Min Height:
+        <input type="range" min="200" max="800" step="50" @bind="minHeightPx" style="width:100px" />
+        @minHeightPx px
+    </label>
+    <label>
+        Max Length:
+        <input type="checkbox" @bind="useMaxLength" />
+        @if (useMaxLength) { <input type="number" @bind="maxLength" style="width:70px" /> }
+    </label>
+</div>
+
+<div class="demo-block">
+    <div class="demo-block-header">Live Demo</div>
+    <MarkdownEditor @bind-Value="content" Options="options" />
+</div>
+
+@code {
+    private string content = "# Options Demo\n\nEdit the controls above to change editor behaviour.";
+
+    private bool showToolbar = true;
+    private bool showStatusBar = true;
+    private bool readOnly = false;
+    private bool spellCheck = true;
+    private int minHeightPx = 400;
+    private bool useMaxLength = false;
+    private int maxLength = 500;
+
+    private EditorOptions options => new()
+    {
+        ShowToolbar = showToolbar,
+        ShowStatusBar = showStatusBar,
+        ReadOnly = readOnly,
+        SpellCheck = spellCheck,
+        MinHeight = $"{minHeightPx}px",
+        MaxLength = useMaxLength ? maxLength : null,
+    };
+}

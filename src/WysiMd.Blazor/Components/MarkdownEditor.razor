@@ -1,0 +1,861 @@
+﻿@using WysiMd.Blazor.Models
+@using WysiMd.Blazor.Services
+@using Microsoft.JSInterop
+@using Microsoft.AspNetCore.Components.Forms
+@namespace WysiMd.Blazor.Components
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+<div class="wysimd-editor @ThemeClass @ModeClass @(Options.ReadOnly ? "wysimd-readonly" : "")"
+     style="@(string.IsNullOrEmpty(Options.Height) ? "" : $"height: {Options.Height};") min-height: @Options.MinHeight; @BackgroundStyle">
+
+    @* ── Hidden Image Upload ─────────────────────────────────── *@
+    @if (!Options.ReadOnly)
+    {
+        <InputFile id="@_fileInputId"
+                   OnChange="HandleFileSelected"
+                   accept="image/*"
+                   style="display:none" />
+    }
+
+    @* ── Toolbar ─────────────────────────────────────────────── *@
+    @if (Options.ShowToolbar)
+    {
+        <EditorToolbar EnabledItems="Options.EnabledToolbarItems"
+                       OverflowItems="Options.OverflowItems"
+                       Mode="_mode"
+                       IsDarkTheme="@_isDark"
+                       FileName="@FileName"
+                       AllowFileNameEditing="@Options.AllowFileNameEditing"
+                       ActiveFormats="_activeFormats"
+                       ReadOnly="@Options.ReadOnly"
+                       ItemOverrides="@Options.ToolbarItemOverrides"
+                       ActionTriggered="HandleToolbarAction"
+                       ModeChanged="SetMode"
+                       ThemeChanged="ToggleTheme"
+                       FileNameChanged="SetFileName"
+                       HeadingLevelChanged="HandleHeading" />
+    }
+
+    @* ── Editor body ─────────────────────────────────────────── *@
+    <div class="wysimd-body">
+
+        @* Raw: show textarea *@
+        @if (_mode == EditorMode.Raw)
+        {
+            <textarea id="@_sourceId"
+                      class="wysimd-source"
+                      placeholder="@Options.Placeholder"
+                      spellcheck="@Options.SpellCheck.ToString().ToLower()"
+                      maxlength="@(Options.MaxLength.HasValue ? Options.MaxLength.Value.ToString() : null)"
+                      value="@_document.RawMarkdown"
+                      readonly="@Options.ReadOnly"
+                      @oninput="OnSourceInput"
+                      @onkeydown="OnKeyDown"
+                      @onscroll="OnSourceScroll">
+            </textarea>
+        }
+
+        @* Visual: show contenteditable *@
+        @if (_mode == EditorMode.Visual)
+        {
+            <div id="@_previewId" class="wysimd-preview wysimd-wysiwyg"
+                 contenteditable="@(Options.ReadOnly ? "false" : "true")"
+                 placeholder="@Options.Placeholder"
+                 @oninput="OnWysiwygInput"
+                 @onchange="() => UpdateFromWysiwyg()"
+                 @onscroll="OnPreviewScroll">
+                @((MarkupString)_renderedHtml)
+            </div>
+        }
+
+    </div>
+
+    @* ── Status bar ───────────────────────────────────────────── *@
+    @if (Options.ShowStatusBar)
+    {
+        <div class="wysimd-statusbar">
+            <span>@_stats.WordCount words</span>
+            <span>@_stats.CharCount chars</span>
+            <span>@_stats.LineCount lines</span>
+            <span>@_stats.ReadingTimeDisplay</span>
+            <div class="wysimd-statusbar-spacer"></div>
+            @if (Options.ReadOnly)
+            {
+                <span class="wysimd-mode-pill wysimd-readonly-pill">Read only</span>
+            }
+            <span class="wysimd-mode-pill">@_mode</span>
+        </div>
+    }
+</div>
+
+@* ── Dialogs ──────────────────────────────────────────────── *@
+<TableDialog IsVisible="_showTableDialog"
+             IsDarkTheme="@_isDark"
+             OnConfirm="OnTableConfirmed"
+             OnCancel="() => _showTableDialog = false" />
+
+<LinkDialog IsVisible="_showLinkDialog"
+            IsDarkTheme="@_isDark"
+            InitialText="@_linkDialogInitialText"
+            OnConfirm="OnLinkConfirmed"
+            OnCancel="() => _showLinkDialog = false" />
+
+@code {
+    // ── Parameters ────────────────────────────────────────────
+
+    /// <summary>The markdown content value (two-way bindable).</summary>
+    [Parameter] public string Value { get; set; } = string.Empty;
+
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+
+    /// <summary>The file name (two-way bindable).</summary>
+    [Parameter] public string FileName { get; set; } = "document";
+
+    [Parameter] public EventCallback<string> FileNameChanged { get; set; }
+
+    /// <summary>Editor configuration options.</summary>
+    [Parameter] public EditorOptions Options { get; set; } = new();
+
+    /// <summary>Fired whenever the markdown content changes.</summary>
+    [Parameter] public EventCallback<string> OnChange { get; set; }
+
+    /// <summary>Fired when the user clicks the Print button.</summary>
+    [Parameter] public EventCallback<string> OnPrint { get; set; }
+
+    /// <summary>Fired when the user clicks the Download PDF button.</summary>
+    [Parameter] public EventCallback<string> OnDownloadPdf { get; set; }
+
+    /// <summary>
+    /// Two-way bindable dark-mode flag. Bind to the host app's theme state for automatic sync.
+    /// Changing this from outside re-renders the editor without requiring a page refresh.
+    /// The theme-toggle button flips the value and fires IsDarkThemeChanged so the host stays in sync.
+    /// </summary>
+    [Parameter] public bool IsDarkTheme { get; set; }
+
+    [Parameter] public EventCallback<bool> IsDarkThemeChanged { get; set; }
+
+    // ── Private state ─────────────────────────────────────────
+
+    private readonly MarkdownService _md = new();
+    private MarkdownDocument _document = new();
+    private EditorMode _mode;
+    private EditorStats _stats = new();
+    private string _renderedHtml = string.Empty;
+
+    // Dialog state
+    private bool _showTableDialog;
+    private bool _showLinkDialog;
+    private string _linkDialogInitialText = string.Empty;
+    private int _linkSelStart;
+    private int _linkSelEnd;
+
+    // Element IDs (unique per instance)
+    private readonly string _sourceId = $"wysimd-src-{Guid.NewGuid():N}";
+    private readonly string _previewId = $"wysimd-pre-{Guid.NewGuid():N}";
+    private readonly string _fileInputId = $"wysimd-file-{Guid.NewGuid():N}";
+
+    // Undo/Redo debouncing
+    private System.Timers.Timer? _historyTimer;
+
+    // JS interop
+    private DotNetObjectReference<MarkdownEditor>? _dotnetRef;
+    private IJSObjectReference? _jsModule;
+    private bool _shortcutsRegistered;
+
+    // Effective dark-mode state: IsDarkTheme parameter wins over Options.IsDarkTheme
+    private bool _isDark;
+
+    // ── Computed CSS ──────────────────────────────────────────
+
+    private string ThemeClass => _isDark ? "wysimd-dark" : string.Empty;
+
+    private string BackgroundStyle
+    {
+        get
+        {
+            string? bg = _isDark ? Options.DarkBackground : Options.Background;
+            return string.IsNullOrEmpty(bg) ? string.Empty : $"background: {bg};";
+        }
+    }
+    private string ModeClass => _mode switch
+    {
+        EditorMode.Visual => "wysimd-preview-only",
+        _ => "wysimd-raw"
+    };
+
+    // ── Lifecycle ─────────────────────────────────────────────
+
+    protected override void OnInitialized()
+    {
+        _isDark = IsDarkTheme || Options.IsDarkTheme;
+        _mode = Options.DefaultMode;
+        _document = new MarkdownDocument(Value);
+        RefreshPreview();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _jsModule = await JS.InvokeAsync<IJSObjectReference>(
+                "import", "./_content/WysiMd.Blazor/WysiMd.Blazor.js");
+        }
+
+        // Register keyboard shortcuts for both textarea and preview
+        if (!_shortcutsRegistered && (_mode is EditorMode.Raw or EditorMode.Visual))
+        {
+            _dotnetRef ??= DotNetObjectReference.Create(this);
+            if (_mode == EditorMode.Raw)
+                await SafeJs("WysiMdBlazor.registerShortcuts", _sourceId, _dotnetRef);
+
+            if (_mode == EditorMode.Visual)
+            {
+                await SafeJs("WysiMdBlazor.registerShortcuts", _previewId, _dotnetRef);
+                await SafeJs("WysiMdBlazor.registerSelectionListener", _previewId, _dotnetRef);
+            }
+
+            _shortcutsRegistered = true;
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        // IsDarkTheme parameter takes precedence; fall back to Options.IsDarkTheme
+        _isDark = IsDarkTheme || Options.IsDarkTheme;
+
+        // Sync external value changes
+        if (Value != _document.RawMarkdown)
+        {
+            _document = new MarkdownDocument(Value);
+            RefreshPreview();
+        }
+    }
+
+    // ── Input handling ────────────────────────────────────────
+
+    private async Task OnSourceInput(ChangeEventArgs e)
+    {
+        if (Options.ReadOnly) return;
+        string newValue = e.Value?.ToString() ?? string.Empty;
+        
+        // Start history timer if not already running (debounce snapshots)
+        _historyTimer ??= CreateHistoryTimer();
+        _historyTimer.Stop();
+        _historyTimer.Start();
+
+        _document.SetContentSilent(newValue); // Don't push state immediately
+        RefreshPreview();
+        await NotifyChange();
+    }
+
+    private System.Timers.Timer CreateHistoryTimer()
+    {
+        var timer = new System.Timers.Timer(1000); // Snapshot every 1s of inactivity
+        timer.AutoReset = false;
+        timer.Elapsed += (s, e) => _document.PushHistory();
+        return timer;
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (Options.ReadOnly) return;
+
+        // Smart Enter: continue list items
+        if (e.Key == "Enter" && !e.ShiftKey)
+            await HandleSmartEnter();
+
+        // Tab: insert 4 spaces
+        if (e.Key == "Tab")
+            await HandleTab(e.ShiftKey);
+    }
+
+    private async Task HandleSmartEnter()
+    {
+        var sel = await GetSelection();
+        if (sel is null) return;
+
+        int pos = sel.Value;
+        string text = _document.RawMarkdown;
+
+        // Find current line bounds
+        int lineStart = pos;
+        while (lineStart > 0 && text[lineStart - 1] != '\n') lineStart--;
+        int lineEnd = pos;
+        while (lineEnd < text.Length && text[lineEnd] != '\n') lineEnd++;
+
+        string line = text[lineStart..lineEnd];
+
+        // Exit fenced code block on Enter on an empty line inside it
+        if (IsInsideCodeBlock(text, lineStart) && string.IsNullOrWhiteSpace(line))
+        {
+            // Replace the empty line with the closing fence + a blank line after
+            string newMd = text[..lineStart] + "```\n\n" + text[lineEnd..];
+            _document.RawMarkdown = newMd;
+            RefreshPreview();
+            int newPos = lineStart + 4; // after "```\n"
+            await SetValueAndSelection(newMd, newPos, newPos);
+            await NotifyChange();
+            return;
+        }
+
+        string? continuation = GetListContinuation(line);
+
+        if (continuation != null)
+        {
+            // Standard continuation
+            string newMd = text[..pos] + "\n" + continuation + text[pos..];
+            _document.RawMarkdown = newMd;
+            RefreshPreview();
+            await SetValueAndSelection(newMd, pos + 1 + continuation.Length, pos + 1 + continuation.Length);
+            await NotifyChange();
+        }
+        else
+        {
+            // Check if we are on an empty prefix line to "exit" (e.g. just "- ")
+            var prefixMatch = System.Text.RegularExpressions.Regex.Match(line, @"^(\s*)([-*+]|\d+[.)])\s*$");
+            if (prefixMatch.Success)
+            {
+                // Clear the prefix so the user can start a normal line
+                string newMd = text[..lineStart] + text[lineEnd..];
+                _document.RawMarkdown = newMd;
+                RefreshPreview();
+                await SetValueAndSelection(newMd, lineStart, lineStart);
+                await NotifyChange();
+            }
+        }
+    }
+
+    private async Task HandleTab(bool shift)
+    {
+        var sel = await GetSelection();
+        if (sel is null) return;
+
+        string insert = shift ? string.Empty : "    ";
+        string newMd = _document.RawMarkdown[..sel.Value] + insert + _document.RawMarkdown[sel.Value..];
+        _document.RawMarkdown = newMd;
+        RefreshPreview();
+        await SetValueAndSelection(newMd, sel.Value + insert.Length, sel.Value + insert.Length);
+        await NotifyChange();
+    }
+
+    // ── Keyboard shortcut handler (called from JS) ─────────────
+
+    [JSInvokable]
+    public async Task HandleShortcut(string action)
+    {
+        await HandleToolbarAction(action);
+    }
+
+    // ── Active format state (WYSIWYG only) ───────────────────
+
+    public record ActiveFormats(
+        bool Bold, bool Italic, bool Strikethrough,
+        bool UnorderedList, bool OrderedList,
+        bool CodeBlock, bool Blockquote, bool Code);
+
+    [JSInvokable]
+    public void UpdateActiveFormats(ActiveFormats formats)
+    {
+        _activeFormats = [];
+        if (formats.Bold) _activeFormats.Add("bold");
+        if (formats.Italic) _activeFormats.Add("italic");
+        if (formats.Strikethrough) _activeFormats.Add("strikethrough");
+        if (formats.UnorderedList) _activeFormats.Add("unordered-list");
+        if (formats.OrderedList) _activeFormats.Add("ordered-list");
+        if (formats.CodeBlock) _activeFormats.Add("code-block");
+        if (formats.Blockquote) _activeFormats.Add("blockquote");
+        if (formats.Code) _activeFormats.Add("code");
+        StateHasChanged();
+    }
+
+    private HashSet<string> _activeFormats = [];
+
+    private void ClearActiveFormats()
+    {
+        _activeFormats = [];
+    }
+
+    // ── Toolbar actions ───────────────────────────────────────
+
+    // Non-editing actions allowed in ReadOnly mode
+    private static readonly HashSet<string> _readOnlyAllowedActions =
+        ["mode-toggle", "theme-toggle", "overflow-toggle", "print", "download-pdf", "download-md", "sync-wysiwyg"];
+
+    private async Task HandleToolbarAction(string action)
+    {
+        if (Options.ReadOnly && !_readOnlyAllowedActions.Contains(action)) return;
+
+        if (action == "sync-wysiwyg")
+        {
+            await UpdateFromWysiwyg();
+            return;
+        }
+
+        if (_mode == EditorMode.Visual)
+        {
+            switch (action)
+            {
+                case "undo": await SafeJs("WysiMdBlazor.execCommand", "undo"); break;
+                case "redo": await SafeJs("WysiMdBlazor.execCommand", "redo"); break;
+                case "bold": await SafeJs("WysiMdBlazor.execCommand", "bold"); break;
+                case "italic": await SafeJs("WysiMdBlazor.execCommand", "italic"); break;
+                case "strikethrough": await SafeJs("WysiMdBlazor.execCommand", "strikethrough"); break;
+                case "unordered-list": await SafeJs("WysiMdBlazor.execCommand", "insertUnorderedList"); break;
+                case "ordered-list": await SafeJs("WysiMdBlazor.execCommand", "insertOrderedList"); break;
+                case "task-list": await SafeJs("WysiMdBlazor.execCommand", "insertUnorderedList"); break;
+                case "horizontal-rule": await SafeJs("WysiMdBlazor.execCommand", "insertHorizontalRule"); break;
+                case "code": await SafeJs("WysiMdBlazor.insertInlineCode"); break;
+                case "code-block": await SafeJs("WysiMdBlazor.insertCodeBlock"); break;
+                case "blockquote": await SafeJs("WysiMdBlazor.insertBlockquote"); break;
+                case "link":
+                    await SafeJs("WysiMdBlazor.saveSelection");
+                    _showLinkDialog = true;
+                    return;
+                case "insert-row": await SafeJs("WysiMdBlazor.insertRow"); break;
+                case "delete-row": await SafeJs("WysiMdBlazor.deleteRow"); break;
+                case "insert-col": await SafeJs("WysiMdBlazor.insertColumn"); break;
+                case "delete-col": await SafeJs("WysiMdBlazor.deleteColumn"); break;
+                case "auto-sum": await SafeJs("WysiMdBlazor.autoSum"); break;
+                case "table": 
+                    await SafeJs("WysiMdBlazor.saveSelection");
+                    _showTableDialog = true; 
+                    return;
+                case "image":
+                    await SafeJs("WysiMdBlazor.saveSelection");
+                    await SafeJs("WysiMdBlazor.clickElement", _fileInputId);
+                    return;
+                case "print":
+                    await OnPrint.InvokeAsync(_document.RawMarkdown);
+                    return;
+                case "download-pdf":
+                    await OnDownloadPdf.InvokeAsync(_document.RawMarkdown);
+                    return;
+                case "download-md":
+                    await DownloadMarkdown();
+                    return;
+            }
+            await UpdateFromWysiwyg(refreshPreview: false);
+            return;
+        }
+
+        switch (action)
+        {
+            case "undo":
+                if (_document.Undo())
+                {
+                    RefreshPreview();
+                    await SetValueAndSelection(_document.RawMarkdown, 0, 0);
+                    await NotifyChange();
+                }
+                return;
+            case "redo":
+                if (_document.Redo())
+                {
+                    RefreshPreview();
+                    await SetValueAndSelection(_document.RawMarkdown, 0, 0);
+                    await NotifyChange();
+                }
+                return;
+            case "table":
+                _showTableDialog = true;
+                return;
+            case "link":
+            {
+                var (ls, le) = await GetSelectionRange();
+                _linkSelStart = ls;
+                _linkSelEnd = le;
+                _linkDialogInitialText = await GetSelectedText();
+                _showLinkDialog = true;
+                return;
+            }
+            case "image":
+                await SafeJs("WysiMdBlazor.clickElement", _fileInputId);
+                return;
+            case "print":
+                await OnPrint.InvokeAsync(_document.RawMarkdown);
+                return;
+            case "download-pdf":
+                await OnDownloadPdf.InvokeAsync(_document.RawMarkdown);
+                return;
+            case "download-md":
+                await DownloadMarkdown();
+                return;
+        }
+
+        // All other actions need current selection
+        var (selStart, selEnd) = await GetSelectionRange();
+
+        string md = _document.RawMarkdown;
+        string newMd = md;
+        int newStart = selStart, newEnd = selEnd;
+
+        switch (action)
+        {
+            case "bold":
+                (newMd, newStart, newEnd) = _md.ToggleBold(md, selStart, selEnd);
+                break;
+            case "italic":
+                (newMd, newStart, newEnd) = _md.ToggleItalic(md, selStart, selEnd);
+                break;
+            case "strikethrough":
+                (newMd, newStart, newEnd) = _md.ToggleStrikethrough(md, selStart, selEnd);
+                break;
+            case "unordered-list":
+                (newMd, newStart, newEnd) = _md.ToggleUnorderedList(md, selStart, selEnd);
+                break;
+            case "ordered-list":
+                (newMd, newStart, newEnd) = _md.ToggleOrderedList(md, selStart, selEnd);
+                break;
+            case "task-list":
+                (newMd, newStart, newEnd) = _md.ToggleTaskList(md, selStart, selEnd);
+                break;
+            case "blockquote":
+                (newMd, newStart, newEnd) = _md.ToggleBlockquote(md, selStart, selEnd);
+                break;
+            case "code":
+                (newMd, newStart, newEnd) = _md.ToggleInlineCode(md, selStart, selEnd);
+                break;
+            case "code-block":
+            {
+                int newCursor;
+                (newMd, newCursor) = _md.InsertCodeBlock(md, selStart, selEnd);
+                newStart = newEnd = newCursor;
+                break;
+            }
+            case "horizontal-rule":
+                int cursor = selEnd;
+                (newMd, cursor) = _md.InsertHorizontalRule(md, cursor);
+                newStart = newEnd = cursor;
+                break;
+        }
+
+        if (newMd != md)
+        {
+            _document.RawMarkdown = newMd;
+            RefreshPreview();
+            await SetValueAndSelection(newMd, newStart, newEnd);
+            await NotifyChange();
+        }
+    }
+
+    private async Task HandleHeading(int level)
+    {
+        if (_mode == EditorMode.Visual)
+        {
+            string tag = level == 0 ? "p" : $"h{level}";
+            await SafeJs("WysiMdBlazor.execCommand", "formatBlock", tag);
+            await UpdateFromWysiwyg();
+            return;
+        }
+
+        var (_, selEnd) = await GetSelectionRange();
+        var (newMd, newCursor) = _md.SetHeading(_document.RawMarkdown, selEnd, level);
+        _document.RawMarkdown = newMd;
+        RefreshPreview();
+        await SetValueAndSelection(newMd, newCursor, newCursor);
+        await NotifyChange();
+    }
+
+    // ── Dialog callbacks ─────────────────────────────────────
+
+    private async Task OnTableConfirmed(TableDialog.TableResult result)
+    {
+        _showTableDialog = false;
+        string table = _md.GenerateTable(result.Rows, result.Cols);
+
+        if (_mode == EditorMode.Visual)
+        {
+            await SafeJs("WysiMdBlazor.restoreSelection");
+            // Append an empty paragraph so the user can click/arrow out of the table
+            string tableHtml = _md.ToHtml(table) + "<p><br></p>";
+            await SafeJs("WysiMdBlazor.execCommand", "insertHTML", tableHtml);
+            await UpdateFromWysiwyg();
+        }
+        else
+        {
+            var (_, selEnd) = await GetSelectionRange();
+            // Ensure double newline after table for easy breakout
+            string newMd = _document.RawMarkdown[..selEnd] + "\n\n" + table + "\n\n" + _document.RawMarkdown[selEnd..];
+            _document.RawMarkdown = newMd;
+            RefreshPreview();
+            await SetValueAndSelection(newMd, selEnd + 2 + table.Length + 1, selEnd + 2 + table.Length + 1);
+            await NotifyChange();
+        }
+    }
+
+    private async Task OnLinkConfirmed(LinkDialog.LinkResult result)
+    {
+        _showLinkDialog = false;
+
+        if (_mode == EditorMode.Visual)
+        {
+            await SafeJs("WysiMdBlazor.restoreSelection");
+            await SafeJs("WysiMdBlazor.insertLink", result.Url, result.Text);
+            await UpdateFromWysiwyg();
+            return;
+        }
+
+        var (newMd, newStart, newEnd) = _md.InsertLink(
+            _document.RawMarkdown, _linkSelStart, _linkSelEnd, result.Url, result.Text);
+        _document.RawMarkdown = newMd;
+        RefreshPreview();
+        await SetValueAndSelection(newMd, newStart, newEnd);
+        await NotifyChange();
+    }
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+
+        // Limit size to 5MB for base64 performance
+        if (file.Size > 5 * 1024 * 1024) return;
+
+        using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+        using var ms = new System.IO.MemoryStream();
+        await stream.CopyToAsync(ms);
+        var base64 = Convert.ToBase64String(ms.ToArray());
+        var dataUrl = $"data:{file.ContentType};base64,{base64}";
+
+        if (_mode == EditorMode.Visual)
+        {
+            await SafeJs("WysiMdBlazor.restoreSelection");
+            string imgHtml = $"<img src=\"{dataUrl}\" alt=\"{file.Name}\" />";
+            await SafeJs("WysiMdBlazor.execCommand", "insertHTML", imgHtml);
+            await UpdateFromWysiwyg();
+        }
+        else
+        {
+            var (_, selEnd) = await GetSelectionRange();
+            string imgMd = $"![{file.Name}]({dataUrl})";
+            string newMd = _document.RawMarkdown[..selEnd] + imgMd + _document.RawMarkdown[selEnd..];
+            _document.RawMarkdown = newMd;
+            RefreshPreview();
+            await SetValueAndSelection(newMd, selEnd + imgMd.Length, selEnd + imgMd.Length);
+            await NotifyChange();
+        }
+    }
+
+    private async Task DownloadMarkdown()
+    {
+        // For visual mode, sync content first
+        if (_mode == EditorMode.Visual)
+        {
+            await UpdateFromWysiwyg();
+        }
+
+        string md = _document.RawMarkdown;
+        string fileName = (string.IsNullOrWhiteSpace(FileName) ? "document" : FileName) + ".md";
+        string dataUrl = $"data:text/markdown;charset=utf-8,{Uri.EscapeDataString(md)}";
+        await SafeJs("WysiMdBlazor.downloadFile", fileName, dataUrl);
+    }
+
+    // ── Mode switching ────────────────────────────────────────
+
+    private async Task SetMode(EditorMode mode)
+    {
+        if (_mode == EditorMode.Visual && mode != EditorMode.Visual)
+        {
+            await UpdateFromWysiwyg();
+            await SafeJs("WysiMdBlazor.unregisterSelectionListener", _previewId);
+            ClearActiveFormats();
+        }
+
+        _mode = mode;
+        _shortcutsRegistered = false; // re-register after re-render
+        if (mode == EditorMode.Visual)
+        {
+            RefreshPreview();
+        }
+    }
+
+    private async Task ToggleTheme()
+    {
+        _isDark = !_isDark;
+        Options.IsDarkTheme = _isDark;
+        await IsDarkThemeChanged.InvokeAsync(_isDark);
+    }
+
+    private async Task SetFileName(string name)
+    {
+        FileName = name;
+        await FileNameChanged.InvokeAsync(name);
+    }
+
+    // ── Preview ───────────────────────────────────────────────
+
+    private void RefreshPreview()
+    {
+        _renderedHtml = _md.ToHtml(_document.RawMarkdown);
+        _stats = _md.GetStats(_document.RawMarkdown);
+    }
+
+    private async Task OnSourceScroll()
+    {
+        if (_mode == EditorMode.Visual)
+            await SafeJs("WysiMdBlazor.syncScroll", _sourceId, _previewId);
+    }
+
+    private async Task OnPreviewScroll()
+    {
+        if (_mode == EditorMode.Visual)
+            await SafeJs("WysiMdBlazor.syncScroll", _previewId, _sourceId);
+    }
+
+    private async Task OnWysiwygInput()
+    {
+        if (Options.ReadOnly) return;
+        await UpdateFromWysiwyg(refreshPreview: false);
+    }
+
+    private async Task UpdateFromWysiwyg(bool refreshPreview = true)
+    {
+        try
+        {
+            string newMd = await JS.InvokeAsync<string>("WysiMdBlazor.getMarkdownFromHtml", _previewId);
+
+            if (newMd != _document.RawMarkdown)
+            {
+                // Directly set the field to avoid intermediate Undo stack pushes from the property setter
+                // while the user is still typing in the visual view.
+                _document.SetContentSilent(newMd);
+                
+                if (refreshPreview) RefreshPreview();
+                await NotifyChange();
+            }
+        }
+        catch { }
+    }
+
+    // ── JS helpers ────────────────────────────────────────────
+
+    private async Task<(int start, int end)> GetSelectionRange()
+    {
+        try
+        {
+            var result = await JS.InvokeAsync<SelectionResult>(
+                "WysiMdBlazor.getSelection", _sourceId);
+            return (result.Start, result.End);
+        }
+        catch { return (0, 0); }
+    }
+
+    private async Task<int?> GetSelection()
+    {
+        var (_, end) = await GetSelectionRange();
+        return end;
+    }
+
+    private async Task<string> GetSelectedText()
+    {
+        try
+        {
+            var result = await JS.InvokeAsync<SelectionResult>(
+                "WysiMdBlazor.getSelection", _sourceId);
+            int len = result.End - result.Start;
+            if (len <= 0 || result.Start >= _document.RawMarkdown.Length) return string.Empty;
+            return _document.RawMarkdown.Substring(result.Start, Math.Min(len, _document.RawMarkdown.Length - result.Start));
+        }
+        catch { return string.Empty; }
+    }
+
+    private async Task SetValueAndSelection(string value, int start, int end)
+    {
+        await SafeJs("WysiMdBlazor.setValueAndSelection", _sourceId, value, start, end);
+    }
+
+    private async Task SafeJs(string identifier, params object?[] args)
+    {
+        try 
+        { 
+            await JS.InvokeVoidAsync(identifier, args); 
+        }
+        catch { /* ignore during prerender */ }
+    }
+
+    // ── Notification ─────────────────────────────────────────
+
+    private async Task NotifyChange()
+    {
+        await ValueChanged.InvokeAsync(_document.RawMarkdown);
+        await OnChange.InvokeAsync(_document.RawMarkdown);
+    }
+
+    // ── Smart list continuation ───────────────────────────────
+
+    private static string GetCurrentLine(string text, int pos)
+    {
+        if (pos > text.Length) pos = text.Length;
+        int start = pos;
+        while (start > 0 && text[start - 1] != '\n') start--;
+        int end = pos;
+        while (end < text.Length && text[end] != '\n') end++;
+        return text[start..end];
+    }
+
+    private static bool IsInsideCodeBlock(string text, int lineStart)
+    {
+        // Count how many ``` fence openers appear before lineStart (odd = inside a block)
+        int fenceCount = 0;
+        int i = 0;
+        while (i < lineStart)
+        {
+            if (i + 2 < text.Length && text[i] == '`' && text[i + 1] == '`' && text[i + 2] == '`')
+            {
+                fenceCount++;
+                i += 3;
+                // Skip rest of the fence line
+                while (i < lineStart && text[i] != '\n') i++;
+            }
+            else i++;
+        }
+        return fenceCount % 2 == 1;
+    }
+
+    private static string? GetListContinuation(string line)
+    {
+        // Unordered list
+        var ulMatch = System.Text.RegularExpressions.Regex.Match(line, @"^(\s*)([-*+])\s+(.*)$");
+        if (ulMatch.Success)
+        {
+            // Empty item = exit list
+            if (string.IsNullOrWhiteSpace(ulMatch.Groups[3].Value)) return null;
+            return $"{ulMatch.Groups[1].Value}{ulMatch.Groups[2].Value} ";
+        }
+
+        // Ordered list
+        var olMatch = System.Text.RegularExpressions.Regex.Match(line, @"^(\s*)(\d+)\.\s+(.*)$");
+        if (olMatch.Success)
+        {
+            if (string.IsNullOrWhiteSpace(olMatch.Groups[3].Value)) return null;
+            int nextNum = int.Parse(olMatch.Groups[2].Value) + 1;
+            return $"{olMatch.Groups[1].Value}{nextNum}. ";
+        }
+
+        // Task list
+        var taskMatch = System.Text.RegularExpressions.Regex.Match(line, @"^(\s*)([-*+])\s+\[[ x]\]\s+(.*)$");
+        if (taskMatch.Success)
+        {
+            if (string.IsNullOrWhiteSpace(taskMatch.Groups[3].Value)) return null;
+            return $"{taskMatch.Groups[1].Value}{taskMatch.Groups[2].Value} [ ] ";
+        }
+
+        return null;
+    }
+
+    // ── IAsyncDisposable ─────────────────────────────────────
+
+    public async ValueTask DisposeAsync()
+    {
+        _dotnetRef?.Dispose();
+        if (_jsModule is not null)
+        {
+            try { await _jsModule.DisposeAsync(); } catch { }
+        }
+    }
+
+    // ── JS interop record ────────────────────────────────────
+
+    private record SelectionResult(int Start, int End, string Value);
+}

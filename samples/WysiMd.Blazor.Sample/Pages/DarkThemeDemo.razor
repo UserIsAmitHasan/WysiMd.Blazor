@@ -1,0 +1,33 @@
+@page "/demo/dark-theme"
+
+<PageTitle>Dark Theme — WysiMd.Blazor</PageTitle>
+
+<h1>Dark Theme</h1>
+<p>
+    Use <code>@@bind-IsDarkTheme</code> for two-way binding, or set
+    <code>EditorOptions.IsDarkTheme</code> once at startup.
+</p>
+
+<div class="control-row">
+    <label>
+        <input type="checkbox" @bind="isDark" />
+        Dark Mode
+    </label>
+</div>
+
+<div class="demo-block">
+    <div class="demo-block-header">Live Demo</div>
+    <MarkdownEditor @bind-Value="content" @bind-IsDarkTheme="isDark" />
+</div>
+
+<h2>CSS Customisation</h2>
+<p>Override any <code>--wysimd-*</code> CSS custom property on a parent element:</p>
+<pre><code>.my-wrapper {
+  --wysimd-accent: #7c3aed;
+  --wysimd-bg-toolbar: #faf5ff;
+}</code></pre>
+
+@code {
+    private bool isDark = false;
+    private string content = "# Dark Theme Demo\n\nToggle the checkbox above to switch between light and dark mode.\n\nAll colours are driven by **CSS custom properties**, so you can fully rebrand the editor by overriding `--wysimd-*` variables.";
+}

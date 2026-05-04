@@ -1,0 +1,49 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>WysiMd.Blazor</AssemblyName>
+    <RootNamespace>WysiMd.Blazor</RootNamespace>
+
+    <!-- NuGet package metadata -->
+    <PackageId>WysiMd.Blazor</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Autorior</Authors>
+    <Company>Autorior</Company>
+    <Product>WysiMd.Blazor</Product>
+    <Description>A WYSIWYG Markdown editor Razor component for Blazor (.NET 10). Supports Visual and Raw modes, toolbar customisation, dark/light themes, table editing, undo/redo, and more — with minimal JavaScript.</Description>
+    <PackageTags>blazor;markdown;editor;wysiwyg;razor;component;rcl</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/autorior/WysiMd.Blazor</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/autorior/WysiMd.Blazor</PackageProjectUrl>
+    <Copyright>Copyright © 2025–2026 Autorior</Copyright>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <PackageIcon>wysimd-blazor-icon.png</PackageIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <SupportedPlatform Include="browser" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Markdig" Version="1.1.2" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.5" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\wysimd-blazor-icon.png" Pack="true" PackagePath="\" />
+    <None Include="wwwroot\css\WysiMd.Blazor.css" />
+  </ItemGroup>
+
+</Project>

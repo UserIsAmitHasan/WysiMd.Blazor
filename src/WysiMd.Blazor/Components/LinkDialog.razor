@@ -1,0 +1,74 @@
+﻿@namespace WysiMd.Blazor.Components
+
+@if (IsVisible)
+{
+    <div class="wysimd-overlay @(IsDarkTheme ? "wysimd-dark" : "")" @onmousedown="OnOverlayMouseDown" @onmouseup="OnOverlayMouseUp">
+        <div class="wysimd-dialog"
+             @onmousedown:stopPropagation="true"
+             @onmouseup:stopPropagation="true"
+             @onmouseup="() => _mouseDownOnOverlay = false">
+            <h3>Insert Link</h3>
+
+            <label>Display Text</label>
+            <input type="text" @bind="_text" placeholder="Link text" @onkeydown="OnKeyDown" />
+
+            <label>URL</label>
+            <input type="url" @bind="_url" placeholder="https://example.com" @onkeydown="OnKeyDown" />
+
+            <div class="wysimd-dialog-actions">
+                <button class="wysimd-btn wysimd-btn-secondary" @onclick="Cancel">Cancel</button>
+                <button class="wysimd-btn wysimd-btn-primary" @onclick="Confirm" disabled="@string.IsNullOrWhiteSpace(_url)">Insert Link</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public bool IsDarkTheme { get; set; }
+    [Parameter] public string InitialText { get; set; } = string.Empty;
+    [Parameter] public EventCallback<LinkResult> OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private string _text = string.Empty;
+    private string _url = string.Empty;
+    private bool _mouseDownOnOverlay;
+
+    protected override void OnParametersSet()
+    {
+        if (IsVisible && _text != InitialText)
+            _text = InitialText;
+    }
+
+    private async Task Confirm()
+    {
+        if (string.IsNullOrWhiteSpace(_url)) return;
+        string text = string.IsNullOrWhiteSpace(_text) ? _url : _text;
+        await OnConfirm.InvokeAsync(new LinkResult(text, _url));
+        _text = string.Empty;
+        _url = string.Empty;
+    }
+
+    private async Task Cancel()
+    {
+        _text = string.Empty;
+        _url = string.Empty;
+        await OnCancel.InvokeAsync();
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await Confirm();
+        if (e.Key == "Escape") await Cancel();
+    }
+
+    private void OnOverlayMouseDown() => _mouseDownOnOverlay = true;
+
+    private async Task OnOverlayMouseUp()
+    {
+        if (_mouseDownOnOverlay) await Cancel();
+        _mouseDownOnOverlay = false;
+    }
+
+    public record LinkResult(string Text, string Url);
+}

@@ -1,0 +1,48 @@
+@page "/demo/readonly"
+
+<PageTitle>Read Only — WysiMd.Blazor</PageTitle>
+
+<h1>Read Only</h1>
+<p>
+    Set <code>EditorOptions.ReadOnly = true</code> to disable editing while keeping the
+    toolbar actions that make sense in preview mode (theme toggle, mode toggle, export).
+</p>
+
+<div class="demo-block">
+    <div class="demo-block-header">Read-Only Preview</div>
+    <MarkdownEditor Value="@content"
+        Options="@(new EditorOptions
+        {
+            ReadOnly = true,
+            DefaultMode = EditorMode.Visual,
+            ShowStatusBar = true,
+        })" />
+</div>
+
+<h2>Minimal Preview (no toolbar)</h2>
+<div class="demo-block">
+    <div class="demo-block-header">Toolbar hidden</div>
+    <MarkdownEditor Value="@content"
+        Options="@(new EditorOptions
+        {
+            ReadOnly = true,
+            ShowToolbar = false,
+            ShowStatusBar = false,
+            MinHeight = "150px",
+        })" />
+</div>
+
+@code {
+    private const string content = """
+        # Read-Only Mode
+
+        This editor is in **read-only** mode. You can:
+
+        - Scroll the content
+        - Toggle between Visual and Raw views
+        - Switch dark / light theme
+        - Export or print the document
+
+        But you **cannot** type or format text.
+        """;
+}

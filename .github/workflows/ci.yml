@@ -1,0 +1,134 @@
+﻿name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  # â”€â”€ .NET Build & Unit Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  build-and-test:
+    name: Build & Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Unit Tests
+        run: >
+          dotnet test tests/WysiMd.Blazor.UnitTests
+          --no-build --configuration Release
+          --logger "trx;LogFileName=unit-tests.trx"
+          --collect:"XPlat Code Coverage"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: '**/unit-tests.trx'
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: '**/coverage.cobertura.xml'
+
+      - name: Pack (dry run)
+        run: dotnet pack src/WysiMd.Blazor/WysiMd.Blazor.csproj --no-build --configuration Release --output ./artifacts
+
+  # â”€â”€ JavaScript Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  js-tests:
+    name: JavaScript Tests (Vitest)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: tests/WysiMd.Blazor.JsTests/package.json
+
+      - name: Install dependencies
+        working-directory: tests/WysiMd.Blazor.JsTests
+        run: npm ci
+
+      - name: Run Vitest
+        working-directory: tests/WysiMd.Blazor.JsTests
+        run: npm test
+
+  # â”€â”€ Playwright Integration Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  integration-tests:
+    name: Integration Tests (Playwright)
+    runs-on: ubuntu-latest
+    # Run after build so we can use the built sample
+    needs: build-and-test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build sample app
+        run: dotnet build samples/WysiMd.Blazor.Sample --configuration Release
+
+      - name: Publish sample app
+        run: >
+          dotnet publish samples/WysiMd.Blazor.Sample
+          --configuration Release
+          --output ./publish/sample
+
+      - name: Install Playwright browsers
+        run: >
+          dotnet build tests/WysiMd.Blazor.IntegrationTests --configuration Release &&
+          pwsh tests/WysiMd.Blazor.IntegrationTests/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+
+      - name: Start sample app
+        run: |
+          dotnet serve --directory ./publish/sample/wwwroot --port 5100 &
+          echo "Waiting for app to start..."
+          for i in $(seq 1 20); do
+            curl -s http://localhost:5100 > /dev/null && echo "App ready" && break
+            sleep 2
+          done
+        env:
+          ASPNETCORE_ENVIRONMENT: Production
+
+      - name: Run Playwright tests
+        run: >
+          dotnet test tests/WysiMd.Blazor.IntegrationTests
+          --configuration Release
+          --logger "trx;LogFileName=integration-tests.trx"
+        env:
+          WYSIMD_BASE_URL: http://localhost:5100
+
+      - name: Upload Playwright results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: |
+            **/integration-tests.trx
+            **/playwright-report/

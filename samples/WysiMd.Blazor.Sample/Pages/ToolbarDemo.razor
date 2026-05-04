@@ -1,0 +1,62 @@
+@page "/demo/toolbar"
+
+<PageTitle>Toolbar Customization — WysiMd.Blazor</PageTitle>
+
+<h1>Toolbar Customization</h1>
+
+<h2>Minimal Toolbar</h2>
+<p>Only the most common actions, no overflow panel.</p>
+<div class="demo-block">
+    <div class="demo-block-header">bold · italic · link · ul · ol · toggle-mode</div>
+    <MarkdownEditor @bind-Value="content1"
+        Options="@(new EditorOptions
+        {
+            EnabledToolbarItems = new List<string>
+            {
+                "bold", "italic", "link", "ul", "ol", "toggle-mode"
+            },
+            ShowStatusBar = false,
+            MinHeight = "160px",
+        })" />
+</div>
+
+<h2>Writing-Focused Toolbar</h2>
+<p>Primary items front-and-centre, formatting in overflow.</p>
+<div class="demo-block">
+    <div class="demo-block-header">heading · ul · ol · task · blockquote · link · image · overflow</div>
+    <MarkdownEditor @bind-Value="content2"
+        Options="@(new EditorOptions
+        {
+            EnabledToolbarItems = new List<string>
+            {
+                "undo", "redo", "heading", "ul", "ol", "task",
+                "blockquote", "link", "image", "toggle-mode", "toggle-theme", "overflow"
+            },
+            OverflowItems = new List<string>
+            {
+                "bold", "italic", "strikethrough", "code", "code-block",
+                "hr", "table", "download", "print"
+            },
+        })" />
+</div>
+
+<h2>Hidden Items</h2>
+<p>Use <code>ToolbarItemOverrides</code> to hide specific items without rebuilding the full list.</p>
+<div class="demo-block">
+    <div class="demo-block-header">PDF and Print hidden</div>
+    <MarkdownEditor @bind-Value="content3"
+        Options="@(new EditorOptions
+        {
+            ToolbarItemOverrides = new Dictionary<string, ToolbarItemOptions>
+            {
+                ["pdf"]   = new ToolbarItemOptions { Hidden = true },
+                ["print"] = new ToolbarItemOptions { Hidden = true },
+            }
+        })" />
+</div>
+
+@code {
+    private string content1 = "Write something **bold** or *italic*.";
+    private string content2 = "# Writing Focus\n\nA clean writing experience.";
+    private string content3 = "# Hidden Items\n\nPDF and Print buttons are hidden via `ToolbarItemOverrides`.";
+}
