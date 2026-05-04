@@ -3,6 +3,7 @@ using WysiMd.Blazor.Services;
 
 namespace WysiMd.Blazor.UnitTests;
 
+[TestClass]
 public class MarkdownServiceTests
 {
     private readonly MarkdownService _svc = new();
@@ -11,34 +12,34 @@ public class MarkdownServiceTests
     // ToHtml
     // -----------------------------------------------------------------------
 
-    [Fact]
+    [TestMethod]
     public void ToHtml_EmptyString_ReturnsEmpty()
     {
         _svc.ToHtml(string.Empty).Should().BeEmpty();
     }
 
-    [Fact]
+    [TestMethod]
     public void ToHtml_Heading_RendersH1()
     {
         var html = _svc.ToHtml("# Hello");
         html.Should().Contain("<h1").And.Contain(">Hello</h1>");
     }
 
-    [Fact]
+    [TestMethod]
     public void ToHtml_Bold_RendersBoldTag()
     {
         var html = _svc.ToHtml("**bold**");
         html.Should().Contain("<strong>bold</strong>");
     }
 
-    [Fact]
+    [TestMethod]
     public void ToHtml_GfmTable_RendersTableElement()
     {
         var md = "| A | B |\n| --- | --- |\n| 1 | 2 |";
         _svc.ToHtml(md).Should().Contain("<table>");
     }
 
-    [Fact]
+    [TestMethod]
     public void ToHtml_TaskList_RendersCheckbox()
     {
         var html = _svc.ToHtml("- [ ] todo");
@@ -49,7 +50,7 @@ public class MarkdownServiceTests
     // ToggleBold
     // -----------------------------------------------------------------------
 
-    [Fact]
+    [TestMethod]
     public void ToggleBold_WrapsSelection()
     {
         var (md, s, e) = _svc.ToggleBold("hello world", 6, 11);
@@ -58,7 +59,7 @@ public class MarkdownServiceTests
         e.Should().Be(13);
     }
 
-    [Fact]
+    [TestMethod]
     public void ToggleBold_UnwrapsExistingBold()
     {
         var (md, s, e) = _svc.ToggleBold("hello **world**", 8, 13);
@@ -67,14 +68,14 @@ public class MarkdownServiceTests
         e.Should().Be(11);
     }
 
-    [Fact]
+    [TestMethod]
     public void ToggleBold_CursorOnly_ExpandsToWord()
     {
         var (md, _, _) = _svc.ToggleBold("hello world", 7, 7);
         md.Should().Be("hello **world**");
     }
 
-    [Fact]
+    [TestMethod]
     public void ToggleBold_EmptyString_InsertsMarkers()
     {
         var (md, _, _) = _svc.ToggleBold(string.Empty, 0, 0);
@@ -85,14 +86,14 @@ public class MarkdownServiceTests
     // ToggleItalic
     // -----------------------------------------------------------------------
 
-    [Fact]
+    [TestMethod]
     public void ToggleItalic_WrapsSelection()
     {
         var (md, _, _) = _svc.ToggleItalic("test", 0, 4);
         md.Should().Be("*test*");
     }
 
-    [Fact]
+    [TestMethod]
     public void ToggleItalic_UnwrapsExistingItalic()
     {
         var (md, _, _) = _svc.ToggleItalic("*test*", 1, 5);
@@ -103,14 +104,14 @@ public class MarkdownServiceTests
     // ToggleStrikethrough
     // -----------------------------------------------------------------------
 
-    [Fact]
+    [TestMethod]
     public void ToggleStrikethrough_WrapsSelection()
     {
         var (md, _, _) = _svc.ToggleStrikethrough("delete me", 0, 9);
         md.Should().Be("~~delete me~~");
     }
 
-    [Fact]
+    [TestMethod]
     public void ToggleStrikethrough_Unwraps()
     {
         var (md, _, _) = _svc.ToggleStrikethrough("~~delete me~~", 2, 11);
@@ -121,14 +122,14 @@ public class MarkdownServiceTests
     // ToggleInlineCode
     // -----------------------------------------------------------------------
 
-    [Fact]
+    [TestMethod]
     public void ToggleInlineCode_WrapsSelection()
     {
         var (md, _, _) = _svc.ToggleInlineCode("var x = 1", 0, 9);
         md.Should().Be("`var x = 1`");
     }
 
-    [Fact]
+    [TestMethod]
     public void ToggleInlineCode_Unwraps()
     {
         var (md, _, _) = _svc.ToggleInlineCode("`var x = 1`", 1, 10);
@@ -139,28 +140,28 @@ public class MarkdownServiceTests
     // SetHeading
     // -----------------------------------------------------------------------
 
-    [Fact]
+    [TestMethod]
     public void SetHeading_AddsPrefix()
     {
         var (md, _) = _svc.SetHeading("Hello", 0, 2);
         md.Should().Be("## Hello");
     }
 
-    [Fact]
+    [TestMethod]
     public void SetHeading_ReplacesExistingPrefix()
     {
         var (md, _) = _svc.SetHeading("# Hello", 0, 3);
         md.Should().Be("### Hello");
     }
 
-    [Fact]
+    [TestMethod]
     public void SetHeading_SameLevel_Removes()
     {
         var (md, _) = _svc.SetHeading("## Hello", 0, 2);
         md.Should().Be("Hello");
     }
 
-    [Fact]
+    [TestMethod]
     public void SetHeading_Level0_RemovesHeading()
     {
         var (md, _) = _svc.SetHeading("## Hello", 0, 0);
@@ -171,14 +172,14 @@ public class MarkdownServiceTests
     // ToggleUnorderedList
     // -----------------------------------------------------------------------
 
-    [Fact]
+    [TestMethod]
     public void ToggleUnorderedList_AddsBullets()
     {
         var (md, _, _) = _svc.ToggleUnorderedList("line one\nline two", 0, 17);
         md.Should().Be("- line one\n- line two");
     }
 
-    [Fact]
+    [TestMethod]
     public void ToggleUnorderedList_RemovesBullets()
     {
         var (md, _, _) = _svc.ToggleUnorderedList("- line one\n- line two", 0, 21);
@@ -189,14 +190,14 @@ public class MarkdownServiceTests
     // ToggleOrderedList
     // -----------------------------------------------------------------------
 
-    [Fact]
+    [TestMethod]
     public void ToggleOrderedList_NumbersLines()
     {
         var (md, _, _) = _svc.ToggleOrderedList("a\nb\nc", 0, 5);
         md.Should().Be("1. a\n2. b\n3. c");
     }
 
-    [Fact]
+    [TestMethod]
     public void ToggleOrderedList_RemovesNumbers()
     {
         var (md, _, _) = _svc.ToggleOrderedList("1. a\n2. b", 0, 9);
@@ -207,7 +208,7 @@ public class MarkdownServiceTests
     // ToggleTaskList
     // -----------------------------------------------------------------------
 
-    [Fact]
+    [TestMethod]
     public void ToggleTaskList_AddsTaskPrefix()
     {
         var (md, _, _) = _svc.ToggleTaskList("todo item", 0, 9);
@@ -218,14 +219,14 @@ public class MarkdownServiceTests
     // ToggleBlockquote
     // -----------------------------------------------------------------------
 
-    [Fact]
+    [TestMethod]
     public void ToggleBlockquote_AddsPrefix()
     {
         var (md, _, _) = _svc.ToggleBlockquote("quote", 0, 5);
         md.Should().Be("> quote");
     }
 
-    [Fact]
+    [TestMethod]
     public void ToggleBlockquote_Removes()
     {
         var (md, _, _) = _svc.ToggleBlockquote("> quote", 2, 7);
@@ -236,7 +237,7 @@ public class MarkdownServiceTests
     // InsertLink
     // -----------------------------------------------------------------------
 
-    [Fact]
+    [TestMethod]
     public void InsertLink_InsertsMarkdownLink()
     {
         var (md, s, e) = _svc.InsertLink("click here", 0, 10, "https://example.com", "click here");
@@ -249,7 +250,7 @@ public class MarkdownServiceTests
     // InsertHorizontalRule
     // -----------------------------------------------------------------------
 
-    [Fact]
+    [TestMethod]
     public void InsertHorizontalRule_InsertsHr()
     {
         var (md, _) = _svc.InsertHorizontalRule("before", 6);
@@ -260,7 +261,7 @@ public class MarkdownServiceTests
     // InsertCodeBlock
     // -----------------------------------------------------------------------
 
-    [Fact]
+    [TestMethod]
     public void InsertCodeBlock_InsertsEmptyFence()
     {
         var (md, _) = _svc.InsertCodeBlock(string.Empty, 0, 0);
@@ -268,7 +269,7 @@ public class MarkdownServiceTests
         md.Should().Contain("code");
     }
 
-    [Fact]
+    [TestMethod]
     public void InsertCodeBlock_WrapsSelection()
     {
         var (md, _) = _svc.InsertCodeBlock("let x = 1", 0, 9, "javascript");
@@ -280,7 +281,7 @@ public class MarkdownServiceTests
     // GenerateTable
     // -----------------------------------------------------------------------
 
-    [Fact]
+    [TestMethod]
     public void GenerateTable_ProducesCorrectColumnCount()
     {
         var table = _svc.GenerateTable(3, 4);
@@ -288,7 +289,7 @@ public class MarkdownServiceTests
         headerRow.Split('|').Where(c => !string.IsNullOrWhiteSpace(c)).Should().HaveCount(4);
     }
 
-    [Fact]
+    [TestMethod]
     public void GenerateTable_ProducesCorrectRowCount()
     {
         var table = _svc.GenerateTable(4, 2);
@@ -297,7 +298,7 @@ public class MarkdownServiceTests
         lines.Should().HaveCount(5);
     }
 
-    [Fact]
+    [TestMethod]
     public void GenerateTable_WithData_UsesProvidedValues()
     {
         var table = _svc.GenerateTable(2, 2, new[] {
@@ -313,7 +314,7 @@ public class MarkdownServiceTests
     // GetStats
     // -----------------------------------------------------------------------
 
-    [Fact]
+    [TestMethod]
     public void GetStats_EmptyInput_ReturnsZeros()
     {
         var stats = _svc.GetStats(string.Empty);
@@ -322,35 +323,35 @@ public class MarkdownServiceTests
         stats.LineCount.Should().Be(0);
     }
 
-    [Fact]
+    [TestMethod]
     public void GetStats_CountsWords()
     {
         var stats = _svc.GetStats("one two three");
         stats.WordCount.Should().Be(3);
     }
 
-    [Fact]
+    [TestMethod]
     public void GetStats_CountsChars()
     {
         var stats = _svc.GetStats("abc");
         stats.CharCount.Should().Be(3);
     }
 
-    [Fact]
+    [TestMethod]
     public void GetStats_CountsLines()
     {
         var stats = _svc.GetStats("line1\nline2\nline3");
         stats.LineCount.Should().Be(3);
     }
 
-    [Fact]
+    [TestMethod]
     public void GetStats_ReadingTimeDisplay_ShortText()
     {
         var stats = _svc.GetStats("word");
         stats.ReadingTimeDisplay.Should().EndWith("read");
     }
 
-    [Fact]
+    [TestMethod]
     public void GetStats_ReadingTimeDisplay_LongText()
     {
         // 400 words → 2 min at 200 wpm

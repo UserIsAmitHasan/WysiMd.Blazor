@@ -1,4 +1,4 @@
-﻿name: CI
+name: CI
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [main, dev]
 
 jobs:
-  # â”€â”€ .NET Build & Unit Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  # --- .NET Build & Unit Tests -------------------------------------------------
   build-and-test:
     name: Build & Unit Tests
     runs-on: ubuntu-latest
@@ -50,7 +50,7 @@ jobs:
       - name: Pack (dry run)
         run: dotnet pack src/WysiMd.Blazor/WysiMd.Blazor.csproj --no-build --configuration Release --output ./artifacts
 
-  # â”€â”€ JavaScript Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  # --- JavaScript Tests --------------------------------------------------------
   js-tests:
     name: JavaScript Tests (Vitest)
     runs-on: ubuntu-latest
@@ -73,11 +73,10 @@ jobs:
         working-directory: tests/WysiMd.Blazor.JsTests
         run: npm test
 
-  # â”€â”€ Playwright Integration Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  # --- Playwright Integration Tests --------------------------------------------
   integration-tests:
     name: Integration Tests (Playwright)
     runs-on: ubuntu-latest
-    # Run after build so we can use the built sample
     needs: build-and-test
 
     steps:
@@ -91,35 +90,25 @@ jobs:
       - name: Restore
         run: dotnet restore
 
-      - name: Build sample app
-        run: dotnet build samples/WysiMd.Blazor.Sample --configuration Release
-
-      - name: Publish sample app
-        run: >
-          dotnet publish samples/WysiMd.Blazor.Sample
-          --configuration Release
-          --output ./publish/sample
-
-      - name: Install Playwright browsers
+      - name: Build integration tests & install Playwright browsers
         run: >
           dotnet build tests/WysiMd.Blazor.IntegrationTests --configuration Release &&
           pwsh tests/WysiMd.Blazor.IntegrationTests/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
 
       - name: Start sample app
         run: |
-          dotnet serve --directory ./publish/sample/wwwroot --port 5100 &
+          dotnet run --project samples/WysiMd.Blazor.Sample --urls http://localhost:5100 &
           echo "Waiting for app to start..."
-          for i in $(seq 1 20); do
+          for i in $(seq 1 30); do
             curl -s http://localhost:5100 > /dev/null && echo "App ready" && break
             sleep 2
           done
-        env:
-          ASPNETCORE_ENVIRONMENT: Production
 
       - name: Run Playwright tests
         run: >
           dotnet test tests/WysiMd.Blazor.IntegrationTests
           --configuration Release
+          --settings tests/WysiMd.Blazor.IntegrationTests/integration.runsettings
           --logger "trx;LogFileName=integration-tests.trx"
         env:
           WYSIMD_BASE_URL: http://localhost:5100

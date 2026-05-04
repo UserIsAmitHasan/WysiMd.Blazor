@@ -4,9 +4,10 @@ using WysiMd.Blazor.Services;
 
 namespace WysiMd.Blazor.UnitTests;
 
+[TestClass]
 public class EditorOptionsTests
 {
-    [Fact]
+    [TestMethod]
     public void DefaultOptions_HaveExpectedValues()
     {
         var opts = new EditorOptions();
@@ -24,14 +25,14 @@ public class EditorOptionsTests
         opts.IsDarkTheme.Should().BeFalse();
     }
 
-    [Fact]
+    [TestMethod]
     public void EnabledToolbarItems_DefaultsToAllItems()
     {
         var opts = new EditorOptions();
         opts.EnabledToolbarItems.Should().NotBeEmpty();
     }
 
-    [Fact]
+    [TestMethod]
     public void ToolbarItemOverrides_DefaultsToEmptyDictionary()
     {
         var opts = new EditorOptions();
@@ -39,7 +40,7 @@ public class EditorOptionsTests
         opts.ToolbarItemOverrides.Should().BeEmpty();
     }
 
-    [Fact]
+    [TestMethod]
     public void OverflowItems_DefaultsToNonEmptyList()
     {
         var opts = new EditorOptions();
@@ -47,23 +48,24 @@ public class EditorOptionsTests
     }
 }
 
+[TestClass]
 public class EditorStatsTests
 {
-    [Fact]
+    [TestMethod]
     public void ReadingTimeDisplay_Under60Seconds_ShowsSeconds()
     {
         var stats = new EditorStats { ReadingTimeSeconds = 30 };
         stats.ReadingTimeDisplay.Should().Be("30s read");
     }
 
-    [Fact]
+    [TestMethod]
     public void ReadingTimeDisplay_Over60Seconds_ShowsMinutesAndSeconds()
     {
         var stats = new EditorStats { ReadingTimeSeconds = 90 };
         stats.ReadingTimeDisplay.Should().Be("1m 30s read");
     }
 
-    [Fact]
+    [TestMethod]
     public void ReadingTimeDisplay_ExactMinute_ShowsZeroSeconds()
     {
         var stats = new EditorStats { ReadingTimeSeconds = 120 };
@@ -71,9 +73,10 @@ public class EditorStatsTests
     }
 }
 
+[TestClass]
 public class EditorModeTests
 {
-    [Fact]
+    [TestMethod]
     public void EditorMode_HasVisualAndRawValues()
     {
         var values = Enum.GetValues<EditorMode>();

@@ -30,7 +30,7 @@
             if (!IsHidden("mode-toggle"))
             {
                 <button type="button" class="wysimd-toolbar-btn @(Mode == EditorMode.Raw ? "active" : "")"
-                        data-tooltip="Visual / Raw" title="Visual / Raw"
+                        data-action="mode-toggle" data-tooltip="Visual / Raw" title="Visual / Raw"
                         @onclick="async () => await ModeChanged.InvokeAsync(Mode == EditorMode.Raw ? EditorMode.Visual : EditorMode.Raw)">
                     @RawIcon
                 </button>
@@ -41,7 +41,7 @@
             if (!IsHidden("theme-toggle"))
             {
                 <button type="button" class="wysimd-toolbar-btn"
-                        data-tooltip="Toggle theme" title="Toggle theme"
+                        data-action="theme-toggle" data-tooltip="Toggle theme" title="Toggle theme"
                         @onclick="async () => await ThemeChanged.InvokeAsync()">
                     @(IsDarkTheme ? SunIcon : MoonIcon)
                 </button>
@@ -52,7 +52,7 @@
             if (!IsHidden("overflow-toggle"))
             {
                 <button type="button" class="wysimd-toolbar-btn @(_showOverflow ? "active" : "")"
-                        data-tooltip="More" title="More"
+                        data-action="overflow-toggle" data-tooltip="More" title="More"
                         @onclick="ToggleOverflow">
                     @MoreIcon
                 </button>
@@ -66,7 +66,7 @@
             bool isEditAction = IsEditAction(item);
             <button type="button"
                     class="wysimd-toolbar-btn @(isActive ? "active" : "") @(ReadOnly && isEditAction ? "wysimd-disabled" : "")"
-                    data-tooltip="@fullTip" title="@fullTip"
+                    data-action="@item" data-tooltip="@fullTip" title="@fullTip"
                     disabled="@(ReadOnly && isEditAction)"
                     @onclick="() => ActionTriggered.InvokeAsync(item)"
                     @onmousedown:preventDefault>
@@ -104,7 +104,7 @@
                 bool isEditAction = IsEditAction(oi);
                 <button type="button"
                         class="wysimd-toolbar-btn @(isActive ? "active" : "") @(ReadOnly && isEditAction ? "wysimd-disabled" : "")"
-                        title="@tip"
+                        data-action="@oi" title="@tip"
                         disabled="@(ReadOnly && isEditAction)"
                         @onclick="() => ActionTriggered.InvokeAsync(oi)"
                         @onmousedown:preventDefault>

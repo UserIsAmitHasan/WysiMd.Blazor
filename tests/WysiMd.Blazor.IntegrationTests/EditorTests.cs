@@ -1,5 +1,6 @@
 using Microsoft.Playwright;
-using Microsoft.Playwright.NUnit;
+using Microsoft.Playwright.MSTest;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace WysiMd.Blazor.IntegrationTests;
 
@@ -12,11 +13,13 @@ namespace WysiMd.Blazor.IntegrationTests;
 ///
 /// To run in CI, set WYSIMD_BASE_URL or see .github/workflows/ci.yml.
 /// </summary>
-[TestFixture]
-[Parallelizable(ParallelScope.Self)]
+[TestClass]
 public class EditorTests : PageTest
 {
     private string BaseUrl => PlaywrightFixture.BaseUrl;
+
+    [TestInitialize]
+    public void SetDefaultTimeout() => Page.SetDefaultTimeout(20_000);
 
     // -----------------------------------------------------------------------
     // Helpers
@@ -38,17 +41,17 @@ public class EditorTests : PageTest
 
     private async Task SwitchToRawMode()
     {
-        var modeBtn = ToolbarBtn("toggle-mode");
-        if (await modeBtn.IsVisibleAsync())
-            await modeBtn.ClickAsync();
-        await Page.WaitForSelectorAsync(".wysimd-source");
+        var modeBtn = ToolbarBtn("mode-toggle");
+        await modeBtn.WaitForAsync();
+        await modeBtn.ClickAsync();
+        await RawTextarea.WaitForAsync();
     }
 
     // -----------------------------------------------------------------------
     // Page Load
     // -----------------------------------------------------------------------
 
-    [Test]
+    [TestMethod]
     public async Task EditorLoads_ToolbarAndEditorAreVisible()
     {
         await NavigateToBasicDemo();
@@ -61,17 +64,17 @@ public class EditorTests : PageTest
     // Raw Mode — Typing
     // -----------------------------------------------------------------------
 
-    [Test]
+    [TestMethod]
     public async Task RawMode_TypeText_StatusBarUpdatesWordCount()
     {
         await NavigateToBasicDemo();
         await SwitchToRawMode();
 
         await RawTextarea.FillAsync("Hello world this is a test");
-        await Expect(StatusBar).ToContainTextAsync("5"); // at least 5 words
+        await Expect(StatusBar).ToContainTextAsync("6 words");
     }
 
-    [Test]
+    [TestMethod]
     public async Task RawMode_TypeMarkdown_PreviewRendersHeading()
     {
         await NavigateToBasicDemo();
@@ -80,7 +83,7 @@ public class EditorTests : PageTest
         await RawTextarea.FillAsync("# My Heading");
 
         // Switch back to visual to see the rendered output
-        await ToolbarBtn("toggle-mode").ClickAsync();
+        await ToolbarBtn("mode-toggle").ClickAsync();
         await Expect(VisualEditor.Locator("h1")).ToContainTextAsync("My Heading");
     }
 
@@ -88,7 +91,7 @@ public class EditorTests : PageTest
     // Toolbar — Bold
     // -----------------------------------------------------------------------
 
-    [Test]
+    [TestMethod]
     public async Task Toolbar_Bold_WrapsSelectedText()
     {
         await NavigateToBasicDemo();
@@ -105,14 +108,14 @@ public class EditorTests : PageTest
         await ToolbarBtn("bold").ClickAsync();
 
         var value = await RawTextarea.InputValueAsync();
-        Assert.That(value, Does.Contain("**world**"));
+        StringAssert.Contains(value, "**world**");
     }
 
     // -----------------------------------------------------------------------
     // Toolbar — Undo / Redo
     // -----------------------------------------------------------------------
 
-    [Test]
+    [TestMethod]
     public async Task Toolbar_Undo_RestoresPreviousContent()
     {
         await NavigateToBasicDemo();
@@ -124,14 +127,15 @@ public class EditorTests : PageTest
         await ToolbarBtn("undo").ClickAsync();
 
         var value = await RawTextarea.InputValueAsync();
-        Assert.That(value, Is.EqualTo("version one").Or.Contains("version"));
+        Assert.IsTrue(value == "version one" || value.Contains("version"),
+            $"Expected previous content but got: {value}");
     }
 
     // -----------------------------------------------------------------------
     // Mode Toggle
     // -----------------------------------------------------------------------
 
-    [Test]
+    [TestMethod]
     public async Task ModeToggle_SwitchesToRawMode()
     {
         await NavigateToBasicDemo();
@@ -140,12 +144,12 @@ public class EditorTests : PageTest
         await Expect(RawTextarea).ToBeVisibleAsync();
     }
 
-    [Test]
+    [TestMethod]
     public async Task ModeToggle_SwitchesBackToVisualMode()
     {
         await NavigateToBasicDemo();
         await SwitchToRawMode();
-        await ToolbarBtn("toggle-mode").ClickAsync();
+        await ToolbarBtn("mode-toggle").ClickAsync();
         await Expect(VisualEditor).ToBeVisibleAsync();
     }
 
@@ -153,23 +157,23 @@ public class EditorTests : PageTest
     // Dark Mode
     // -----------------------------------------------------------------------
 
-    [Test]
+    [TestMethod]
     public async Task ThemeToggle_AddsDarkClass()
     {
         await NavigateToBasicDemo();
         var editor = Page.Locator(".wysimd-editor");
 
-        await ToolbarBtn("toggle-theme").ClickAsync();
+        await ToolbarBtn("theme-toggle").ClickAsync();
 
         var cls = await editor.GetAttributeAsync("class");
-        Assert.That(cls, Does.Contain("wysimd-dark"));
+        StringAssert.Contains(cls, "wysimd-dark");
     }
 
     // -----------------------------------------------------------------------
     // Keyboard Shortcuts
     // -----------------------------------------------------------------------
 
-    [Test]
+    [TestMethod]
     public async Task KeyboardShortcut_CtrlB_BoldsWord()
     {
         await NavigateToBasicDemo();
@@ -185,14 +189,14 @@ public class EditorTests : PageTest
         await RawTextarea.PressAsync("Control+b");
 
         var value = await RawTextarea.InputValueAsync();
-        Assert.That(value, Does.Contain("**world**"));
+        StringAssert.Contains(value, "**world**");
     }
 
     // -----------------------------------------------------------------------
     // Mobile Viewport
     // -----------------------------------------------------------------------
 
-    [Test]
+    [TestMethod]
     public async Task Mobile_375px_ToolbarIsVisible()
     {
         await Page.SetViewportSizeAsync(375, 812);
@@ -205,7 +209,7 @@ public class EditorTests : PageTest
         await Expect(boldBtn).ToBeVisibleAsync();
     }
 
-    [Test]
+    [TestMethod]
     public async Task Mobile_375px_ButtonsHaveMinimumTouchTargetSize()
     {
         await Page.SetViewportSizeAsync(375, 812);
@@ -213,16 +217,16 @@ public class EditorTests : PageTest
 
         var boldBtn = ToolbarBtn("bold");
         var box = await boldBtn.BoundingBoxAsync();
-        Assert.That(box, Is.Not.Null);
-        Assert.That(box!.Width, Is.GreaterThanOrEqualTo(44));
-        Assert.That(box.Height, Is.GreaterThanOrEqualTo(44));
+        Assert.IsNotNull(box);
+        Assert.IsTrue(box!.Width >= 44, $"Expected width >= 44 but was {box.Width}");
+        Assert.IsTrue(box.Height >= 44, $"Expected height >= 44 but was {box.Height}");
     }
 
     // -----------------------------------------------------------------------
     // Link Dialog
     // -----------------------------------------------------------------------
 
-    [Test]
+    [TestMethod]
     public async Task LinkDialog_OpensAndInsertsLink()
     {
         await NavigateToBasicDemo();
@@ -241,19 +245,20 @@ public class EditorTests : PageTest
         // Fill the URL field
         var urlInput = Page.Locator(".wysimd-dialog input[type='url'], .wysimd-dialog input[placeholder*='http']");
         await urlInput.FillAsync("https://example.com");
+        await urlInput.PressAsync("Tab"); // commit @bind (onchange fires on blur)
 
         // Confirm
-        await Page.Locator(".wysimd-dialog button[type='submit'], .wysimd-dialog .btn-primary").ClickAsync();
+        await Page.Locator(".wysimd-dialog .wysimd-btn-primary").ClickAsync();
 
         var value = await RawTextarea.InputValueAsync();
-        Assert.That(value, Does.Contain("https://example.com"));
+        StringAssert.Contains(value, "https://example.com");
     }
 
     // -----------------------------------------------------------------------
     // Read-Only Mode
     // -----------------------------------------------------------------------
 
-    [Test]
+    [TestMethod]
     public async Task ReadOnly_TextareaIsDisabled()
     {
         await Page.GotoAsync($"{BaseUrl}/demo/readonly");
@@ -264,7 +269,7 @@ public class EditorTests : PageTest
         {
             var disabled = await textarea.GetAttributeAsync("disabled");
             var readOnly = await textarea.GetAttributeAsync("readonly");
-            Assert.That(disabled != null || readOnly != null, Is.True,
+            Assert.IsTrue(disabled != null || readOnly != null,
                 "Textarea should be disabled or readonly in read-only mode");
         }
     }

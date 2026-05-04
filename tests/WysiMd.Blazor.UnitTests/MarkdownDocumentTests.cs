@@ -3,9 +3,10 @@ using WysiMd.Blazor.Models;
 
 namespace WysiMd.Blazor.UnitTests;
 
+[TestClass]
 public class MarkdownDocumentTests
 {
-    [Fact]
+    [TestMethod]
     public void NewDocument_IsEmpty()
     {
         var doc = new MarkdownDocument();
@@ -14,7 +15,7 @@ public class MarkdownDocumentTests
         doc.CanRedo.Should().BeFalse();
     }
 
-    [Fact]
+    [TestMethod]
     public void SetContent_PushesHistory()
     {
         var doc = new MarkdownDocument();
@@ -24,7 +25,7 @@ public class MarkdownDocumentTests
         doc.CanUndo.Should().BeTrue();
     }
 
-    [Fact]
+    [TestMethod]
     public void Undo_RestoresPreviousContent()
     {
         var doc = new MarkdownDocument();
@@ -35,7 +36,7 @@ public class MarkdownDocumentTests
         doc.RawMarkdown.Should().Be("first");
     }
 
-    [Fact]
+    [TestMethod]
     public void Redo_ReappliesContent()
     {
         var doc = new MarkdownDocument();
@@ -47,7 +48,7 @@ public class MarkdownDocumentTests
         doc.RawMarkdown.Should().Be("second");
     }
 
-    [Fact]
+    [TestMethod]
     public void SetContentSilent_DoesNotPushHistory()
     {
         var doc = new MarkdownDocument();
@@ -56,7 +57,7 @@ public class MarkdownDocumentTests
         doc.CanUndo.Should().BeFalse();
     }
 
-    [Fact]
+    [TestMethod]
     public void SetContentSilent_UpdatesRawMarkdown()
     {
         var doc = new MarkdownDocument();
@@ -64,7 +65,7 @@ public class MarkdownDocumentTests
         doc.RawMarkdown.Should().Be("hello");
     }
 
-    [Fact]
+    [TestMethod]
     public void NewEdit_ClearsRedoStack()
     {
         var doc = new MarkdownDocument();
@@ -77,7 +78,7 @@ public class MarkdownDocumentTests
         doc.CanRedo.Should().BeFalse();
     }
 
-    [Fact]
+    [TestMethod]
     public void LastModified_UpdatesOnChange()
     {
         var doc = new MarkdownDocument();
@@ -86,14 +87,14 @@ public class MarkdownDocumentTests
         doc.LastModified.Should().BeOnOrAfter(before);
     }
 
-    [Fact]
+    [TestMethod]
     public void Undo_WithNoHistory_DoesNotThrow()
     {
         var doc = new MarkdownDocument();
         doc.Invoking(d => d.Undo()).Should().NotThrow();
     }
 
-    [Fact]
+    [TestMethod]
     public void Redo_WithNoFuture_DoesNotThrow()
     {
         var doc = new MarkdownDocument();

@@ -25,8 +25,8 @@ WysiMd.Blazor/
 │           ├── WysiMd.Blazor.js         # ~500-line vanilla JS (cursor/selection/DOM table ops)
 │           └── css/WysiMd.Blazor.css    # 645 lines, CSS custom properties, responsive
 ├── tests/
-│   ├── WysiMd.Blazor.UnitTests/   # xUnit + bUnit
-│   ├── WysiMd.Blazor.IntegrationTests/ # Playwright for .NET
+│   ├── WysiMd.Blazor.UnitTests/   # MSTest + bUnit
+│   ├── WysiMd.Blazor.IntegrationTests/ # MSTest + Playwright for .NET
 │   └── WysiMd.Blazor.JsTests/    # Vitest (vanilla JS functions)
 ├── samples/
 │   ├── WysiMd.Blazor.Sample/      # Blazor WASM demo
@@ -78,17 +78,34 @@ dotnet build src/WysiMd.Blazor
 # Run unit tests
 dotnet test tests/WysiMd.Blazor.UnitTests
 
-# Run integration tests (requires sample app running)
+# Run integration tests — sample app must be running first (see below)
 dotnet test tests/WysiMd.Blazor.IntegrationTests
 
 # Run JS tests
 cd tests/WysiMd.Blazor.JsTests && npm test
 
-# Run Blazor sample
-dotnet run --project samples/WysiMd.Blazor.Sample
+# Run Blazor sample (dev server with SPA routing — required before integration tests)
+dotnet run --project samples/WysiMd.Blazor.Sample --urls http://localhost:5100
 
 # Pack NuGet (dry run)
 dotnet pack src/WysiMd.Blazor --configuration Release --output ./artifacts
+```
+
+## Integration Test Prerequisites
+
+The Playwright tests require the **sample app running locally** before `dotnet test` is invoked. The sample is a standalone Blazor WASM app — it must be started with `dotnet run` (not served as static files) because Playwright navigates to deep routes like `/demo/basic` that require SPA fallback routing. `dotnet serve` does not provide SPA fallback and will 404 on those routes.
+
+```powershell
+# Terminal 1 — leave running
+dotnet run --project samples/WysiMd.Blazor.Sample --urls http://localhost:5100
+
+# Terminal 2
+dotnet test tests/WysiMd.Blazor.IntegrationTests
+```
+
+Playwright browsers are installed per-machine by the `playwright.ps1` script bundled in the test output. If browsers are missing, run:
+```powershell
+& "tests\WysiMd.Blazor.IntegrationTests\bin\Debug\net10.0\playwright.ps1" install chromium
 ```
 
 ## Key Design Rules
@@ -118,8 +135,8 @@ Add to both the `:root` block (light defaults) and the `.wysimd-dark :root` / `.
 - **C#:** file-scoped namespaces, nullable enabled, expression-bodied members for simple accessors.
 - **Commits:** conventional commits — `feat:`, `fix:`, `docs:`, `chore:`, `test:`.
 - **No comments for obvious code** — only add a comment when the *why* is non-obvious.
-- **Tests:** every `MarkdownService` method must have unit tests for toggle-on, toggle-off, and edge cases (empty input, cursor-only selection, multi-line).
-- **Playwright tests:** cover the golden path for each major user flow (type in raw, toggle to visual, use toolbar button, verify output).
+- **Tests:** every `MarkdownService` method must have MSTest `[TestMethod]` unit tests for toggle-on, toggle-off, and edge cases (empty input, cursor-only selection, multi-line).
+- **Playwright tests:** MSTest `[TestMethod]` covering the golden path for each major user flow (type in raw, toggle to visual, use toolbar button, verify output).
 
 ## NuGet Publishing
 
