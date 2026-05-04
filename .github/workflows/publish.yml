@@ -12,6 +12,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Validate tag matches csproj version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          CSPROJ_VERSION=$(grep -oP '(?<=<Version>)[^<]+' src/WysiMd.Blazor/WysiMd.Blazor.csproj)
+          echo "Tag version:    $TAG_VERSION"
+          echo "Csproj version: $CSPROJ_VERSION"
+          if [ "$TAG_VERSION" != "$CSPROJ_VERSION" ]; then
+            echo "ERROR: Tag v$TAG_VERSION does not match <Version>$CSPROJ_VERSION</Version> in csproj."
+            exit 1
+          fi
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
