@@ -361,8 +361,8 @@ WysiMd.Blazor/
 │       └── wwwroot/               # WysiMd.Blazor.js + WysiMd.Blazor.css
 │
 ├── tests/
-│   ├── WysiMd.Blazor.UnitTests/   # xUnit + bUnit + FluentAssertions
-│   ├── WysiMd.Blazor.IntegrationTests/ # Playwright for .NET (NUnit)
+│   ├── WysiMd.Blazor.UnitTests/   # MSTest + bUnit
+│   ├── WysiMd.Blazor.IntegrationTests/ # MSTest + Playwright for .NET
 │   └── WysiMd.Blazor.JsTests/    # Vitest (jsdom) — vanilla JS functions
 │
 ├── samples/
