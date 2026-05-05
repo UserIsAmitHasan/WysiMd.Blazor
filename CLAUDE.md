@@ -29,10 +29,10 @@ WysiMd.Blazor/
 │   ├── WysiMd.Blazor.IntegrationTests/ # MSTest + Playwright for .NET
 │   └── WysiMd.Blazor.JsTests/    # Vitest (vanilla JS functions)
 ├── samples/
-│   ├── WysiMd.Blazor.Sample/      # Blazor WASM demo + docs site (integration test target)
-│   └── WysiMd.Blazor.MudBlazor.Sample/ # MudBlazor integration demo + docs site
-└── docs/                          # Markdown documentation (served by both sample apps)
-    └── sample-apps.md             # ← csproj details, page inventory, running locally
+│   └── WysiMd.Blazor.Sample/      # Blazor WASM demo + docs site (integration test target)
+└── docs/                          # Markdown documentation (served by the sample app)
+    ├── sample-apps.md             # ← csproj details, page inventory, running locally
+    └── mudblazor.md               # MudBlazor integration guide (dialogs, forms, theme sync)
 ```
 
 ## Architecture

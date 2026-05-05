@@ -253,6 +253,23 @@ Users switch modes via the toolbar toggle button. Default is `EditorMode.Visual`
 
 ---
 
+## MudBlazor
+
+WysiMd.Blazor works with MudBlazor without any adapter package. Drop `<MarkdownEditor>` inside `MudCard`, `MudDialog`, or `EditForm` exactly as you would any other input component.
+
+```razor
+<MudCard>
+    <MudCardContent Class="pa-0">
+        <MarkdownEditor @bind-Value="content"
+            Options="@(new EditorOptions { MinHeight = "300px" })" />
+    </MudCardContent>
+</MudCard>
+```
+
+Sync dark mode by forwarding `MudThemeProvider`'s state to `@bind-IsDarkTheme`, and match your palette via CSS custom properties on `.wysimd-editor`. See [docs/mudblazor.md](docs/mudblazor.md) for full examples (dialogs, forms, theme syncing, border removal).
+
+---
+
 ## Theming
 
 ### Dark mode
@@ -367,13 +384,13 @@ WysiMd.Blazor/
 │
 ├── samples/
 │   ├── WysiMd.Blazor.Sample/      # Blazor WASM standalone — 7 demo pages
-│   └── WysiMd.Blazor.MudBlazor.Sample/ # Blazor WASM + MudBlazor 8 — 4 demo pages
 │
 └── docs/                          # Markdown documentation
     ├── getting-started.md
     ├── configuration.md
     ├── toolbar-customization.md
     ├── theming.md
+    ├── mudblazor.md
     ├── mobile.md
     └── api-reference.md
 ```
@@ -383,11 +400,7 @@ WysiMd.Blazor/
 ## Running the Samples
 
 ```bash
-# Plain Blazor sample
 dotnet run --project samples/WysiMd.Blazor.Sample
-
-# MudBlazor sample
-dotnet run --project samples/WysiMd.Blazor.MudBlazor.Sample
 ```
 
 ---
@@ -428,6 +441,7 @@ No JavaScript dependencies — all JS is vanilla.
 | Configuration reference | [docs/configuration.md](docs/configuration.md) |
 | Toolbar customization | [docs/toolbar-customization.md](docs/toolbar-customization.md) |
 | Theming & CSS variables | [docs/theming.md](docs/theming.md) |
+| MudBlazor integration | [docs/mudblazor.md](docs/mudblazor.md) |
 | Mobile support | [docs/mobile.md](docs/mobile.md) |
 | C# API reference | [docs/api-reference.md](docs/api-reference.md) |
 | Roadmap | [ROADMAP.md](ROADMAP.md) |

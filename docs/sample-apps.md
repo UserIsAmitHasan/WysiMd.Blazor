@@ -1,6 +1,8 @@
 # Sample Applications
 
-Two sample apps ship with the repository. Both are Blazor WebAssembly projects that reference the library source directly via `<ProjectReference>`.
+One sample app ships with the repository. It is a Blazor WebAssembly project that references the library source directly via `<ProjectReference>`.
+
+> **MudBlazor users:** WysiMd.Blazor works with MudBlazor — no dedicated sample is included in this repo, but see [mudblazor.md](mudblazor.md) for integration examples (cards, dialogs, forms, theme syncing).
 
 ## WysiMd.Blazor.Sample (Vanilla)
 
@@ -58,27 +60,9 @@ This app **must be running** before executing the integration test suite (see [I
 
 ---
 
-## WysiMd.Blazor.MudBlazor.Sample
-
-**Path:** `samples/WysiMd.Blazor.MudBlazor.Sample/`
-
-Demonstrates integration with [MudBlazor](https://mudblazor.com/) v9. Includes the same documentation sidebar (fetching the same `docs/*.md`) and additional demos showing the editor inside `MudCard`, `MudDialog`, and `MudForm`.
-
-### Pages
-
-| Route | Purpose |
-|---|---|
-| `/demo/basic` | Basic usage with MudBlazor layout |
-| `/demo/form` | `EditForm` + `MudTextField` + validation |
-| `/demo/dialog` | Editor inside `MudDialog` |
-| `/demo/card` | Editor inside `MudCard` with Save/Preview |
-| `/docs/{DocName}` | Same doc-rendering pattern as vanilla sample |
-
----
-
 ## Integration Tests
 
-The Playwright test suite targets the **vanilla sample** at `http://localhost:5100`. Deep routes like `/demo/basic` require SPA fallback routing, which only `dotnet run` provides — `dotnet serve` or plain static hosting will 404.
+The Playwright test suite targets the vanilla sample at `http://localhost:5100`. Deep routes like `/demo/basic` require SPA fallback routing, which only `dotnet run` provides — `dotnet serve` or plain static hosting will 404.
 
 ```powershell
 # Terminal 1 — leave running
@@ -98,7 +82,7 @@ If Playwright browsers are missing:
 
 ## Adding a New Demo Page
 
-1. Create `Pages/YourDemo.razor` in both sample apps with `@page "/demo/your-demo"`.
-2. Add a nav link in `Layout/MainLayout.razor` for both apps.
-3. Add a "View Source" `<details>` block (vanilla) or `MudExpansionPanel` (MudBlazor) at the bottom of the page.
+1. Create `Pages/YourDemo.razor` in the sample app with `@page "/demo/your-demo"`.
+2. Add a nav link in `Layout/MainLayout.razor`.
+3. Add a `<details>` block at the bottom of the page to show the source snippet.
 4. If the demo covers a new feature, add a corresponding Playwright test in `WysiMd.Blazor.IntegrationTests`.
