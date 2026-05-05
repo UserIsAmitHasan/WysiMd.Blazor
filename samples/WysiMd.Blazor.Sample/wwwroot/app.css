@@ -23,6 +23,7 @@ body {
     min-height: 100dvh;
 }
 
+/* Sidebar */
 .app-nav {
     width: var(--nav-width);
     background: var(--color-surface);
@@ -38,13 +39,29 @@ body {
     flex-shrink: 0;
 }
 
+.nav-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+}
+
+.nav-close {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.1rem;
+    color: var(--color-muted);
+    padding: 0.25rem;
+    line-height: 1;
+}
+
 .app-nav .logo {
     font-size: 1.1rem;
     font-weight: 700;
     color: var(--color-accent);
-    margin-bottom: 1.25rem;
     text-decoration: none;
-    display: block;
 }
 
 .app-nav a {
@@ -54,13 +71,18 @@ body {
     color: var(--color-text);
     text-decoration: none;
     font-size: 0.9rem;
-    transition: background 0.15s;
+    transition: background 0.15s, color 0.15s;
 }
 
-.app-nav a:hover,
-.app-nav a.active {
+.app-nav a:hover {
     background: var(--color-bg);
     color: var(--color-accent);
+}
+
+.app-nav a.active {
+    background: #e7f1ff;
+    color: var(--color-accent);
+    font-weight: 500;
 }
 
 .app-nav .nav-section {
@@ -70,6 +92,67 @@ body {
     text-transform: uppercase;
     color: var(--color-muted);
     padding: 1rem 0.75rem 0.25rem;
+}
+
+.nav-external {
+    font-size: 0.75rem;
+    opacity: 0.6;
+}
+
+/* Main body (topbar + content) */
+.app-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+/* Mobile topbar — hidden on desktop */
+.app-topbar {
+    display: none;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0 1rem;
+    height: 52px;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.topbar-logo {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-accent);
+    text-decoration: none;
+}
+
+.nav-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.nav-toggle span {
+    display: block;
+    width: 22px;
+    height: 2px;
+    background: var(--color-text);
+    border-radius: 2px;
+}
+
+/* Overlay backdrop */
+.nav-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.35);
+    z-index: 199;
 }
 
 .app-content {
@@ -138,7 +221,31 @@ code { font-family: 'Cascadia Code', 'Fira Code', monospace; }
 
 /* ── Responsive ── */
 @media (max-width: 700px) {
-    .app-nav { display: none; }
+    .app-nav {
+        position: fixed;
+        left: 0;
+        top: 0;
+        height: 100dvh;
+        z-index: 200;
+        transform: translateX(-100%);
+        transition: transform 0.22s ease;
+        box-shadow: none;
+    }
+
+    .app-nav.nav-open {
+        transform: translateX(0);
+        box-shadow: 4px 0 16px rgba(0,0,0,0.12);
+    }
+
+    .app-nav.nav-open ~ .nav-backdrop,
+    .nav-backdrop {
+        display: block;
+    }
+
+    .nav-close { display: block; }
+
+    .app-topbar { display: flex; }
+
     .app-content { padding: 1rem; }
 }
 

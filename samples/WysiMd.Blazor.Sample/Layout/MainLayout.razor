@@ -1,34 +1,73 @@
 @inherits LayoutComponentBase
+@inject NavigationManager Nav
+@implements IDisposable
 
 <div class="app-shell">
-    <nav class="app-nav">
-        <a href="/" class="logo">WysiMd.Blazor</a>
+    <nav class="app-nav @(_navOpen ? "nav-open" : "")">
+        <div class="nav-header">
+            <NavLink href="/" class="logo" Match="NavLinkMatch.All">WysiMd.Blazor</NavLink>
+            <button class="nav-close" @onclick="CloseNav" aria-label="Close menu">&#x2715;</button>
+        </div>
 
         <span class="nav-section">Demos</span>
-        <a href="/demo/basic">Basic Usage</a>
-        <a href="/demo/options">Options</a>
-        <a href="/demo/dark-theme">Dark Theme</a>
-        <a href="/demo/readonly">Read Only</a>
-        <a href="/demo/toolbar">Toolbar Customization</a>
-        <a href="/demo/form">Form Integration</a>
-        <a href="/demo/mobile">Mobile View</a>
+        <NavLink href="/demo/basic" Match="NavLinkMatch.All" @onclick="CloseNav">Basic Usage</NavLink>
+        <NavLink href="/demo/options" Match="NavLinkMatch.All" @onclick="CloseNav">Options</NavLink>
+        <NavLink href="/demo/dark-theme" Match="NavLinkMatch.All" @onclick="CloseNav">Dark Theme</NavLink>
+        <NavLink href="/demo/readonly" Match="NavLinkMatch.All" @onclick="CloseNav">Read Only</NavLink>
+        <NavLink href="/demo/toolbar" Match="NavLinkMatch.All" @onclick="CloseNav">Toolbar Customization</NavLink>
+        <NavLink href="/demo/form" Match="NavLinkMatch.All" @onclick="CloseNav">Form Integration</NavLink>
+        <NavLink href="/demo/mobile" Match="NavLinkMatch.All" @onclick="CloseNav">Mobile View</NavLink>
 
         <span class="nav-section">Documentation</span>
-        <a href="/docs/getting-started">Getting Started</a>
-        <a href="/docs/configuration">Configuration</a>
-        <a href="/docs/toolbar-customization">Toolbar</a>
-        <a href="/docs/theming">Theming</a>
-        <a href="/docs/mobile">Mobile</a>
-        <a href="/docs/api-reference">API Reference</a>
-        <a href="/docs/sample-apps">Sample Apps</a>
-        <a href="/docs/mudblazor">MudBlazor</a>
+        <NavLink href="/docs/getting-started" Match="NavLinkMatch.All" @onclick="CloseNav">Getting Started</NavLink>
+        <NavLink href="/docs/configuration" Match="NavLinkMatch.All" @onclick="CloseNav">Configuration</NavLink>
+        <NavLink href="/docs/toolbar-customization" Match="NavLinkMatch.All" @onclick="CloseNav">Toolbar</NavLink>
+        <NavLink href="/docs/theming" Match="NavLinkMatch.All" @onclick="CloseNav">Theming</NavLink>
+        <NavLink href="/docs/mobile" Match="NavLinkMatch.All" @onclick="CloseNav">Mobile</NavLink>
+        <NavLink href="/docs/api-reference" Match="NavLinkMatch.All" @onclick="CloseNav">API Reference</NavLink>
+        <NavLink href="/docs/sample-apps" Match="NavLinkMatch.All" @onclick="CloseNav">Sample Apps</NavLink>
+        <NavLink href="/docs/mudblazor" Match="NavLinkMatch.All" @onclick="CloseNav">MudBlazor</NavLink>
 
         <span class="nav-section">Links</span>
-        <a href="https://github.com/UserIsAmitHasan/WysiMd.Blazor" target="_blank">GitHub</a>
-        <a href="https://www.nuget.org/packages/WysiMd.Blazor" target="_blank">NuGet</a>
+        <a href="https://github.com/UserIsAmitHasan/WysiMd.Blazor" target="_blank" rel="noopener">
+            GitHub <span class="nav-external">↗</span>
+        </a>
+        <a href="https://www.nuget.org/packages/WysiMd.Blazor" target="_blank" rel="noopener">
+            NuGet <span class="nav-external">↗</span>
+        </a>
     </nav>
 
-    <main class="app-content">
-        @Body
-    </main>
+    @if (_navOpen)
+    {
+        <div class="nav-backdrop" @onclick="CloseNav"></div>
+    }
+
+    <div class="app-body">
+        <header class="app-topbar">
+            <button class="nav-toggle" @onclick="ToggleNav" aria-label="Open menu">
+                <span></span><span></span><span></span>
+            </button>
+            <NavLink href="/" class="topbar-logo" Match="NavLinkMatch.All">WysiMd.Blazor</NavLink>
+        </header>
+
+        <main class="app-content">
+            @Body
+        </main>
+    </div>
 </div>
+
+@code {
+    bool _navOpen;
+
+    protected override void OnInitialized()
+        => Nav.LocationChanged += OnLocationChanged;
+
+    void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+        => _navOpen = false;
+
+    void ToggleNav() => _navOpen = !_navOpen;
+    void CloseNav()  => _navOpen = false;
+
+    public void Dispose()
+        => Nav.LocationChanged -= OnLocationChanged;
+}

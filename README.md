@@ -1,29 +1,13 @@
-<p align="center">
-  <img src="wysimd-blazor-icon.png" alt="WysiMd.Blazor" width="96" />
-</p>
+# WysiMd.Blazor
 
-<h1 align="center">WysiMd.Blazor</h1>
+[![CI](https://github.com/UserIsAmitHasan/WysiMd.Blazor/actions/workflows/ci.yml/badge.svg)](https://github.com/UserIsAmitHasan/WysiMd.Blazor/actions/workflows/ci.yml)
+[![NuGet](https://img.shields.io/nuget/v/WysiMd.Blazor)](https://www.nuget.org/packages/WysiMd.Blazor)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/WysiMd.Blazor)](https://www.nuget.org/packages/WysiMd.Blazor)
+[![MIT License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+![.NET 10](https://img.shields.io/badge/.NET-10.0-blueviolet)
 
-<p align="center">
-  <a href="https://github.com/UserIsAmitHasan/WysiMd.Blazor/actions/workflows/ci.yml">
-    <img src="https://github.com/UserIsAmitHasan/WysiMd.Blazor/actions/workflows/ci.yml/badge.svg" alt="CI" />
-  </a>
-  <a href="https://www.nuget.org/packages/WysiMd.Blazor">
-    <img src="https://img.shields.io/nuget/v/WysiMd.Blazor" alt="NuGet" />
-  </a>
-  <a href="https://www.nuget.org/packages/WysiMd.Blazor">
-    <img src="https://img.shields.io/nuget/dt/WysiMd.Blazor" alt="NuGet Downloads" />
-  </a>
-  <a href="LICENSE">
-    <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
-  </a>
-  <img src="https://img.shields.io/badge/.NET-10.0-blueviolet" alt=".NET 10" />
-</p>
-
-<p align="center">
-  <strong>What You See Is Markdown</strong> — a WYSIWYG Markdown editor Razor component for Blazor.<br />
-  Always produces clean Markdown. Minimal JavaScript. Mobile friendly. Dark &amp; light themes.
-</p>
+**What You See Is Markdown** — a WYSIWYG Markdown editor Razor component for Blazor.
+Always produces clean Markdown. Minimal JavaScript. Mobile friendly. Dark & light themes.
 
 ---
 
