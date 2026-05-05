@@ -17,4 +17,8 @@
     <ProjectReference Include="..\..\src\WysiMd.Blazor\WysiMd.Blazor.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="..\..\docs\*.md" Link="wwwroot/docs/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

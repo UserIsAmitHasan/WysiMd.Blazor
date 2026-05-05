@@ -1,0 +1,70 @@
+@page "/docs/{DocName}"
+@inject HttpClient Http
+@inject MarkdownService Markdown
+
+<PageTitle>@title — WysiMd.Blazor</PageTitle>
+
+@if (error is not null)
+{
+    <div style="padding:1rem;background:#f8d7da;border-radius:8px;color:#842029">
+        @error
+    </div>
+}
+else if (html is null)
+{
+    <p>Loading…</p>
+}
+else
+{
+    <div class="doc-content">
+        @((MarkupString)html)
+    </div>
+}
+
+<style>
+    .doc-content h1, .doc-content h2, .doc-content h3 { margin-top: 1.5rem; margin-bottom: .5rem; }
+    .doc-content p { margin-bottom: .75rem; line-height: 1.6; }
+    .doc-content pre { background: #f4f4f5; border-radius: 6px; padding: 1rem; overflow-x: auto; }
+    .doc-content code { background: #f4f4f5; padding: .15em .35em; border-radius: 4px; font-size: .9em; }
+    .doc-content pre code { background: none; padding: 0; }
+    .doc-content table { border-collapse: collapse; width: 100%; margin-bottom: 1rem; }
+    .doc-content th, .doc-content td { border: 1px solid #dee2e6; padding: .5rem .75rem; }
+    .doc-content th { background: #f8f9fa; }
+    .doc-content blockquote { border-left: 4px solid #dee2e6; margin: 0; padding: .5rem 1rem; color: #6c757d; }
+    .doc-content a { color: #0d6efd; }
+</style>
+
+@code {
+    [Parameter] public string DocName { get; set; } = string.Empty;
+    private string? html;
+    private string? error;
+    private string title = "Documentation";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        html = null;
+        error = null;
+        title = ToTitle(DocName);
+        try
+        {
+            var md = await Http.GetStringAsync($"docs/{DocName}.md");
+            html = Markdown.ToHtml(md);
+        }
+        catch
+        {
+            error = $"Could not load documentation page '{DocName}'.";
+        }
+    }
+
+    private static string ToTitle(string slug) => slug switch
+    {
+        "getting-started" => "Getting Started",
+        "configuration" => "Configuration",
+        "toolbar-customization" => "Toolbar Customization",
+        "theming" => "Theming",
+        "mobile" => "Mobile",
+        "api-reference" => "API Reference",
+        "sample-apps" => "Sample Apps",
+        _ => slug
+    };
+}

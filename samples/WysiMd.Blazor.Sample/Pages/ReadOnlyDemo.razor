@@ -32,6 +32,11 @@
         })" />
 </div>
 
+<details style="margin-top:2rem">
+    <summary style="cursor:pointer;font-weight:600;padding:.5rem 0">View Source</summary>
+    <pre style="overflow-x:auto;font-size:.82rem;line-height:1.5"><code>@SourceCode</code></pre>
+</details>
+
 @code {
     private const string content = """
         # Read-Only Mode
@@ -44,5 +49,22 @@
         - Export or print the document
 
         But you **cannot** type or format text.
+        """;
+
+    private const string SourceCode =
+        """
+        @page "/demo/readonly"
+
+        <MarkdownEditor Value="@content"
+            Options="@(new EditorOptions
+            {
+                ReadOnly = true,
+                DefaultMode = EditorMode.Visual,
+                ShowStatusBar = true,
+            })" />
+
+        @code {
+            private const string content = "# Read-Only Mode\n\nThis editor is in **read-only** mode.";
+        }
         """;
 }

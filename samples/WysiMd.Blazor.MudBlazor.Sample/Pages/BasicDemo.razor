@@ -13,9 +13,24 @@
     <MudExpansionPanel Text="Current Markdown Value">
         <MudText Typo="Typo.body2" Style="white-space:pre-wrap;font-family:monospace">@content</MudText>
     </MudExpansionPanel>
+    <MudExpansionPanel Text="View Source">
+        <pre style="overflow-x:auto;font-size:0.82rem;line-height:1.5"><code>@SourceCode</code></pre>
+    </MudExpansionPanel>
 </MudExpansionPanels>
 
 @code {
     private bool isDark = false;
     private string content = "# Hello from MudBlazor!\n\nWysiMd.Blazor works alongside **MudBlazor** without style conflicts.\n\nBoth use CSS custom properties — each scoped to their own namespace.";
+
+    private const string SourceCode =
+        """
+        @page "/demo/basic"
+
+        <MarkdownEditor @bind-Value="content" @bind-IsDarkTheme="isDark" />
+
+        @code {
+            private bool isDark = false;
+            private string content = "# Hello from MudBlazor!";
+        }
+        """;
 }

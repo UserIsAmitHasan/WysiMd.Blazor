@@ -1,0 +1,75 @@
+@page "/docs/{DocName}"
+@inject HttpClient Http
+@inject MarkdownService Markdown
+
+<PageTitle>@title — WysiMd.Blazor Docs</PageTitle>
+
+@if (error is not null)
+{
+    <MudAlert Severity="Severity.Error">@error</MudAlert>
+}
+else if (html is null)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else
+{
+    <div class="doc-content mud-typography">
+        @((MarkupString)html)
+    </div>
+}
+
+<style>
+    .doc-content h1 { font-size: 2rem; font-weight: 700; margin: 1.5rem 0 1rem; }
+    .doc-content h2 { font-size: 1.5rem; font-weight: 600; margin: 1.5rem 0 0.75rem; }
+    .doc-content h3 { font-size: 1.2rem; font-weight: 600; margin: 1.25rem 0 0.5rem; }
+    .doc-content p { margin: 0.75rem 0; line-height: 1.7; }
+    .doc-content pre { background: var(--mud-palette-background-grey); border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 1rem 0; }
+    .doc-content code { font-family: monospace; font-size: 0.875em; background: var(--mud-palette-background-grey); padding: 0.1em 0.35em; border-radius: 4px; }
+    .doc-content pre code { background: none; padding: 0; }
+    .doc-content table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+    .doc-content th, .doc-content td { border: 1px solid var(--mud-palette-divider); padding: 0.5rem 0.75rem; text-align: left; }
+    .doc-content th { background: var(--mud-palette-background-grey); font-weight: 600; }
+    .doc-content ul, .doc-content ol { padding-left: 1.5rem; margin: 0.75rem 0; }
+    .doc-content li { margin: 0.25rem 0; line-height: 1.7; }
+    .doc-content a { color: var(--mud-palette-primary); text-decoration: none; }
+    .doc-content a:hover { text-decoration: underline; }
+    .doc-content blockquote { border-left: 4px solid var(--mud-palette-primary); margin: 1rem 0; padding: 0.5rem 1rem; background: var(--mud-palette-background-grey); border-radius: 0 4px 4px 0; }
+</style>
+
+@code {
+    [Parameter] public string DocName { get; set; } = string.Empty;
+
+    private string? html;
+    private string? error;
+    private string title = "Documentation";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        html = null;
+        error = null;
+        title = ToTitle(DocName);
+
+        try
+        {
+            var md = await Http.GetStringAsync($"docs/{DocName}.md");
+            html = Markdown.ToHtml(md);
+        }
+        catch
+        {
+            error = $"Could not load documentation page '{DocName}'.";
+        }
+    }
+
+    private static string ToTitle(string slug) => slug switch
+    {
+        "getting-started" => "Getting Started",
+        "configuration" => "Configuration",
+        "toolbar-customization" => "Toolbar Customization",
+        "theming" => "Theming",
+        "mobile" => "Mobile",
+        "api-reference" => "API Reference",
+        "sample-apps" => "Sample Apps",
+        _ => slug
+    };
+}

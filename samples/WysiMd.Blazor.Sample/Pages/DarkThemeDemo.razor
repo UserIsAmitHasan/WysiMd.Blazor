@@ -27,7 +27,26 @@
   --wysimd-bg-toolbar: #faf5ff;
 }</code></pre>
 
+<details style="margin-top:2rem">
+    <summary style="cursor:pointer;font-weight:600;padding:.5rem 0">View Source</summary>
+    <pre style="overflow-x:auto;font-size:.82rem;line-height:1.5"><code>@SourceCode</code></pre>
+</details>
+
 @code {
     private bool isDark = false;
     private string content = "# Dark Theme Demo\n\nToggle the checkbox above to switch between light and dark mode.\n\nAll colours are driven by **CSS custom properties**, so you can fully rebrand the editor by overriding `--wysimd-*` variables.";
+
+    private const string SourceCode =
+        """
+        @page "/demo/dark-theme"
+
+        <input type="checkbox" @bind="isDark" /> Dark Mode
+
+        <MarkdownEditor @bind-Value="content" @bind-IsDarkTheme="isDark" />
+
+        @code {
+            private bool isDark = false;
+            private string content = "# Dark Theme Demo";
+        }
+        """;
 }

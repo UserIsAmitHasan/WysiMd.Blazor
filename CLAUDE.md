@@ -29,9 +29,10 @@ WysiMd.Blazor/
 │   ├── WysiMd.Blazor.IntegrationTests/ # MSTest + Playwright for .NET
 │   └── WysiMd.Blazor.JsTests/    # Vitest (vanilla JS functions)
 ├── samples/
-│   ├── WysiMd.Blazor.Sample/      # Blazor WASM demo
-│   └── WysiMd.Blazor.MudBlazor.Sample/ # MudBlazor integration demo
-└── docs/                          # Markdown documentation
+│   ├── WysiMd.Blazor.Sample/      # Blazor WASM demo + docs site (integration test target)
+│   └── WysiMd.Blazor.MudBlazor.Sample/ # MudBlazor integration demo + docs site
+└── docs/                          # Markdown documentation (served by both sample apps)
+    └── sample-apps.md             # ← csproj details, page inventory, running locally
 ```
 
 ## Architecture
@@ -93,7 +94,9 @@ dotnet pack src/WysiMd.Blazor --configuration Release --output ./artifacts
 
 ## Integration Test Prerequisites
 
-The Playwright tests require the **sample app running locally** before `dotnet test` is invoked. The sample is a standalone Blazor WASM app — it must be started with `dotnet run` (not served as static files) because Playwright navigates to deep routes like `/demo/basic` that require SPA fallback routing. `dotnet serve` does not provide SPA fallback and will 404 on those routes.
+See **`docs/sample-apps.md`** for the full sample-app specification (csproj layout, page inventory, HttpClient/docs wiring). Summary:
+
+The Playwright tests target `WysiMd.Blazor.Sample` at `http://localhost:5100`. Use `dotnet run` — not `dotnet serve` — because deep routes require SPA fallback routing.
 
 ```powershell
 # Terminal 1 — leave running
@@ -103,7 +106,7 @@ dotnet run --project samples/WysiMd.Blazor.Sample --urls http://localhost:5100
 dotnet test tests/WysiMd.Blazor.IntegrationTests
 ```
 
-Playwright browsers are installed per-machine by the `playwright.ps1` script bundled in the test output. If browsers are missing, run:
+If Playwright browsers are missing:
 ```powershell
 & "tests\WysiMd.Blazor.IntegrationTests\bin\Debug\net10.0\playwright.ps1" install chromium
 ```

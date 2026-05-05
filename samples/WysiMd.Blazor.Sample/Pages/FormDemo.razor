@@ -41,6 +41,11 @@
     </div>
 }
 
+<details style="margin-top:2rem">
+    <summary style="cursor:pointer;font-weight:600;padding:.5rem 0">View Source</summary>
+    <pre style="overflow-x:auto;font-size:.82rem;line-height:1.5"><code>@SourceCode</code></pre>
+</details>
+
 @code {
     private PostModel model = new();
     private bool submitted = false;
@@ -60,4 +65,32 @@
         [System.ComponentModel.DataAnnotations.MinLength(10, ErrorMessage = "Body must be at least 10 characters")]
         public string Body { get; set; } = string.Empty;
     }
+
+    private const string SourceCode =
+        """
+        @page "/demo/form"
+
+        <EditForm Model="model" OnValidSubmit="HandleSubmit">
+            <DataAnnotationsValidator />
+            <div style="margin-bottom:1rem">
+                <InputText @bind-Value="model.Title" />
+                <ValidationMessage For="() => model.Title" />
+            </div>
+            <MarkdownEditor @bind-Value="model.Body"
+                Options="@(new EditorOptions { MinHeight = "300px", ShowStatusBar = true })" />
+            <ValidationMessage For="() => model.Body" />
+            <button type="submit">Submit</button>
+        </EditForm>
+
+        @code {
+            private PostModel model = new();
+            private void HandleSubmit() { submitted = true; }
+
+            private class PostModel
+            {
+                [Required] [StringLength(120)] public string Title { get; set; } = string.Empty;
+                [Required] [MinLength(10)] public string Body { get; set; } = string.Empty;
+            }
+        }
+        """;
 }

@@ -40,14 +40,17 @@
     </MudAlert>
 }
 
+<MudExpansionPanels Class="mt-6">
+    <MudExpansionPanel Text="View Source">
+        <pre style="overflow-x:auto;font-size:0.82rem;line-height:1.5"><code>@SourceCode</code></pre>
+    </MudExpansionPanel>
+</MudExpansionPanels>
+
 @code {
     private PostModel model = new();
     private bool submitted;
 
-    private void HandleSubmit()
-    {
-        submitted = true;
-    }
+    private void HandleSubmit() => submitted = true;
 
     private void Reset()
     {
@@ -65,4 +68,42 @@
         [System.ComponentModel.DataAnnotations.MinLength(10, ErrorMessage = "Body must be at least 10 characters")]
         public string Body { get; set; } = string.Empty;
     }
+
+    private const string SourceCode =
+        """
+        @page "/demo/form"
+
+        <EditForm Model="model" OnValidSubmit="HandleSubmit">
+            <DataAnnotationsValidator />
+            <MudCard>
+                <MudCardContent>
+                    <MudTextField @bind-Value="model.Title" Label="Title" Variant="Variant.Outlined"
+                        For="() => model.Title" Class="mb-4" />
+                    <MarkdownEditor @bind-Value="model.Body"
+                        Options="@(new EditorOptions { MinHeight = "280px", ShowStatusBar = true })" />
+                    <ValidationMessage For="() => model.Body" />
+                </MudCardContent>
+                <MudCardActions>
+                    <MudSpacer />
+                    <MudButton ButtonType="ButtonType.Reset" OnClick="Reset">Reset</MudButton>
+                    <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary"
+                        Variant="Variant.Filled">Publish</MudButton>
+                </MudCardActions>
+            </MudCard>
+        </EditForm>
+
+        @code {
+            private PostModel model = new();
+            private bool submitted;
+
+            private void HandleSubmit() => submitted = true;
+            private void Reset() { model = new(); submitted = false; }
+
+            private class PostModel
+            {
+                [Required] [StringLength(120)] public string Title { get; set; } = string.Empty;
+                [Required] [MinLength(10)] public string Body { get; set; } = string.Empty;
+            }
+        }
+        """;
 }

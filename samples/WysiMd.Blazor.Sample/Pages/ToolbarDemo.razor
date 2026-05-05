@@ -55,8 +55,36 @@
         })" />
 </div>
 
+<details style="margin-top:2rem">
+    <summary style="cursor:pointer;font-weight:600;padding:.5rem 0">View Source</summary>
+    <pre style="overflow-x:auto;font-size:.82rem;line-height:1.5"><code>@SourceCode</code></pre>
+</details>
+
 @code {
     private string content1 = "Write something **bold** or *italic*.";
     private string content2 = "# Writing Focus\n\nA clean writing experience.";
     private string content3 = "# Hidden Items\n\nPDF and Print buttons are hidden via `ToolbarItemOverrides`.";
+
+    private const string SourceCode =
+        """
+        @page "/demo/toolbar"
+
+        // Minimal toolbar
+        <MarkdownEditor @bind-Value="content"
+            Options="@(new EditorOptions
+            {
+                EnabledToolbarItems = new List<string> { "bold", "italic", "link", "ul", "ol", "toggle-mode" },
+            })" />
+
+        // Hide specific items
+        <MarkdownEditor @bind-Value="content"
+            Options="@(new EditorOptions
+            {
+                ToolbarItemOverrides = new Dictionary<string, ToolbarItemOptions>
+                {
+                    ["pdf"]   = new ToolbarItemOptions { Hidden = true },
+                    ["print"] = new ToolbarItemOptions { Hidden = true },
+                }
+            })" />
+        """;
 }

@@ -27,6 +27,11 @@
     <MarkdownEditor @bind-Value="content" Options="options" />
 </div>
 
+<details style="margin-top:2rem">
+    <summary style="cursor:pointer;font-weight:600;padding:.5rem 0">View Source</summary>
+    <pre style="overflow-x:auto;font-size:.82rem;line-height:1.5"><code>@SourceCode</code></pre>
+</details>
+
 @code {
     private string content = "# Options Demo\n\nEdit the controls above to change editor behaviour.";
 
@@ -47,4 +52,30 @@
         MinHeight = $"{minHeightPx}px",
         MaxLength = useMaxLength ? maxLength : null,
     };
+
+    private const string SourceCode =
+        """
+        @page "/demo/options"
+
+        <input type="checkbox" @bind="showToolbar" /> Show Toolbar
+        <input type="checkbox" @bind="showStatusBar" /> Show Status Bar
+        <input type="checkbox" @bind="readOnly" /> Read Only
+
+        <MarkdownEditor @bind-Value="content" Options="options" />
+
+        @code {
+            private bool showToolbar = true;
+            private bool showStatusBar = true;
+            private bool readOnly = false;
+            private int minHeightPx = 400;
+
+            private EditorOptions options => new()
+            {
+                ShowToolbar = showToolbar,
+                ShowStatusBar = showStatusBar,
+                ReadOnly = readOnly,
+                MinHeight = $"{minHeightPx}px",
+            };
+        }
+        """;
 }

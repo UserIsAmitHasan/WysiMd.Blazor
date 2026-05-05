@@ -29,6 +29,12 @@
     </MudCard>
 }
 
+<MudExpansionPanels Class="mt-6">
+    <MudExpansionPanel Text="View Source">
+        <pre style="overflow-x:auto;font-size:0.82rem;line-height:1.5"><code>@SourceCode</code></pre>
+    </MudExpansionPanel>
+</MudExpansionPanels>
+
 @code {
     private string savedContent = string.Empty;
 
@@ -40,4 +46,47 @@
         if (result is { Canceled: false, Data: string md })
             savedContent = md;
     }
+
+    private const string SourceCode =
+        """
+        @page "/demo/dialog"
+        @inject IDialogService DialogService
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+            StartIcon="@Icons.Material.Filled.Edit" OnClick="OpenEditor">
+            Open Editor
+        </MudButton>
+
+        @code {
+            private string savedContent = string.Empty;
+
+            private async Task OpenEditor()
+            {
+                var options = new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true };
+                var dialog = await DialogService.ShowAsync<EditorDialog>("Edit Content", options);
+                var result = await dialog.Result;
+                if (result is { Canceled: false, Data: string md })
+                    savedContent = md;
+            }
+        }
+
+        // EditorDialog.razor
+        <MudDialog>
+            <DialogContent>
+                <MarkdownEditor @bind-Value="content"
+                    Options="@(new EditorOptions { MinHeight = "400px", ShowStatusBar = true })" />
+            </DialogContent>
+            <DialogActions>
+                <MudButton OnClick="Cancel">Cancel</MudButton>
+                <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Save">Save</MudButton>
+            </DialogActions>
+        </MudDialog>
+
+        @code {
+            [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+            private string content = "# Edit Me\n\nThis editor is running inside a **MudDialog**.";
+            private void Save() => MudDialog.Close(DialogResult.Ok(content));
+            private void Cancel() => MudDialog.Cancel();
+        }
+        """;
 }
