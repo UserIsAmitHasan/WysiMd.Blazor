@@ -44,6 +44,7 @@ artifacts/
 
 ## Blazor WASM
 wwwroot/_framework/
+samples/WysiMd.Blazor.Sample/wwwroot/docs/
 
 ## Playwright test results & traces
 **/playwright-report/

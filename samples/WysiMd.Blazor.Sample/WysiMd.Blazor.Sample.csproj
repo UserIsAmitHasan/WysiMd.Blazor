@@ -17,7 +17,19 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="..\..\docs\*.md" Link="wwwroot/docs/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Serve docs from repo root as static web assets at /docs/*.md -->
+    <None Include="..\..\docs\*.md" Link="wwwroot\docs\%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
   </ItemGroup>
+
+  <Target Name="CopyDocsToWwwroot" BeforeTargets="Build">
+    <ItemGroup>
+      <_DocFiles Include="..\..\docs\*.md" />
+    </ItemGroup>
+    <MakeDir Directories="wwwroot\docs" />
+    <Copy SourceFiles="@(_DocFiles)" DestinationFolder="wwwroot\docs" SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>
