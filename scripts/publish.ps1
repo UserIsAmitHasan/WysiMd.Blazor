@@ -72,4 +72,4 @@ git tag "v$Version"
 git push origin "v$Version"
 
 Write-Host ""
-Write-Host "Released v$Version — watch the Actions tab on GitHub for the NuGet publish."
+Write-Host "Released v$Version -- watch the Actions tab on GitHub for the NuGet publish."
