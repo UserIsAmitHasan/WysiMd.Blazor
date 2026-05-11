@@ -6,6 +6,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and
 
 ---
 
+## [1.0.3] – 2026-05-11
+
+### Changed
+- Sample app now serves documentation as static web assets
+- Enhanced navigation layout and styles in the sample app
+- Updated README
+
+### Fixed
+- Corrected a broken documentation link
+
+### Removed
+- MudBlazor (first class support, no worries) sample project
+
+---
+
 ## [1.0.2] – 2026-05-05
 
 ### Fixed
