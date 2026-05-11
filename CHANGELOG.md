@@ -6,6 +6,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and
 
 ---
 
+## [1.0.2] – 2026-05-05
+
+### Fixed
+- Corrected repository URLs in NuGet package metadata
+
+---
+
+## [1.0.1] – 2026-05-04
+
+### Changed
+- Updated test framework references to MSTest for unit and integration tests
+
+---
+
 ## [1.0.0] – 2026-05-04
 
 ### Added

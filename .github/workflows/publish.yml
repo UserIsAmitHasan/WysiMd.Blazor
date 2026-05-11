@@ -23,6 +23,18 @@ jobs:
             exit 1
           fi
 
+      - name: Validate CHANGELOG is updated
+        run: |
+          CSPROJ_VERSION=$(grep -oP '(?<=<Version>)[^<]+' src/WysiMd.Blazor/WysiMd.Blazor.csproj)
+          echo "Checking CHANGELOG for version $CSPROJ_VERSION..."
+          if grep -q "## \[$CSPROJ_VERSION\]" CHANGELOG.md; then
+            echo "✓ CHANGELOG is up-to-date with version $CSPROJ_VERSION"
+          else
+            echo "ERROR: CHANGELOG.md is missing an entry for version $CSPROJ_VERSION"
+            echo "Please add a section like: ## [$CSPROJ_VERSION] – $(date +%Y-%m-%d)"
+            exit 1
+          fi
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
