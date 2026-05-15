@@ -1,5 +1,6 @@
 ﻿@using WysiMd.Blazor.Models
 @using WysiMd.Blazor.Services
+@using WysiMd.Blazor.Utilities
 @using Microsoft.JSInterop
 @using Microsoft.AspNetCore.Components.Forms
 @namespace WysiMd.Blazor.Components
@@ -52,7 +53,8 @@
                       readonly="@Options.ReadOnly"
                       @oninput="OnSourceInput"
                       @onkeydown="OnKeyDown"
-                      @onscroll="OnSourceScroll">
+                      @onscroll="OnSourceScroll"
+                      @onblur="FlushNotify">
             </textarea>
         }
 
@@ -64,7 +66,8 @@
                  placeholder="@Options.Placeholder"
                  @oninput="OnWysiwygInput"
                  @onchange="() => UpdateFromWysiwyg()"
-                 @onscroll="OnPreviewScroll">
+                 @onscroll="OnPreviewScroll"
+                 @onblur="FlushNotify">
                 @((MarkupString)_renderedHtml)
             </div>
         }
@@ -158,6 +161,12 @@
     // Undo/Redo debouncing
     private System.Timers.Timer? _historyTimer;
 
+    // Debounce: delays ValueChanged notifications to reduce SignalR round-trips on Blazor Server
+    private Debouncer? _notifyDebouncer;      // raw mode: debounces NotifyChange
+    private Debouncer? _wysiwygDebouncer;     // visual mode: debounces the full DOM→C# sync
+    private bool _suppressNextInput;          // ignores the oninput fired by SetValueAndSelection
+    private string _lastNotifiedValue = string.Empty; // guards OnParametersSet against echoed values
+
     // JS interop
     private DotNetObjectReference<MarkdownEditor>? _dotnetRef;
     private IJSObjectReference? _jsModule;
@@ -221,32 +230,38 @@
 
     protected override void OnParametersSet()
     {
-        // IsDarkTheme parameter takes precedence; fall back to Options.IsDarkTheme
         _isDark = IsDarkTheme || Options.IsDarkTheme;
 
-        // Sync external value changes
-        if (Value != _document.RawMarkdown)
+        // Only reset when the parent pushed a truly external value.
+        // If Value matches _lastNotifiedValue the parent is echoing our own change back.
+        if (Value != _document.RawMarkdown && Value != _lastNotifiedValue)
         {
             _document = new MarkdownDocument(Value);
+            _lastNotifiedValue = Value;
             RefreshPreview();
         }
     }
 
     // ── Input handling ────────────────────────────────────────
 
-    private async Task OnSourceInput(ChangeEventArgs e)
+    private void OnSourceInput(ChangeEventArgs e)
     {
         if (Options.ReadOnly) return;
+        if (_suppressNextInput) { _suppressNextInput = false; return; }
+
         string newValue = e.Value?.ToString() ?? string.Empty;
-        
-        // Start history timer if not already running (debounce snapshots)
+
         _historyTimer ??= CreateHistoryTimer();
         _historyTimer.Stop();
         _historyTimer.Start();
 
-        _document.SetContentSilent(newValue); // Don't push state immediately
+        _document.SetContentSilent(newValue);
         RefreshPreview();
-        await NotifyChange();
+
+        _notifyDebouncer ??= new Debouncer(
+            getDelay: () => Options.DebounceDelay,
+            action: () => InvokeAsync(NotifyChange));
+        _notifyDebouncer.Schedule();
     }
 
     private System.Timers.Timer CreateHistoryTimer()
@@ -703,10 +718,14 @@
             await SafeJs("WysiMdBlazor.syncScroll", _previewId, _sourceId);
     }
 
-    private async Task OnWysiwygInput()
+    private void OnWysiwygInput()
     {
         if (Options.ReadOnly) return;
-        await UpdateFromWysiwyg(refreshPreview: false);
+
+        _wysiwygDebouncer ??= new Debouncer(
+            getDelay: () => Options.DebounceDelay,
+            action: () => InvokeAsync(() => UpdateFromWysiwyg(refreshPreview: false)));
+        _wysiwygDebouncer.Schedule();
     }
 
     private async Task UpdateFromWysiwyg(bool refreshPreview = true)
@@ -762,6 +781,7 @@
 
     private async Task SetValueAndSelection(string value, int start, int end)
     {
+        _suppressNextInput = true;
         await SafeJs("WysiMdBlazor.setValueAndSelection", _sourceId, value, start, end);
     }
 
@@ -778,8 +798,20 @@
 
     private async Task NotifyChange()
     {
+        _lastNotifiedValue = _document.RawMarkdown;
         await ValueChanged.InvokeAsync(_document.RawMarkdown);
         await OnChange.InvokeAsync(_document.RawMarkdown);
+    }
+
+    private async Task FlushNotify()
+    {
+        if (_notifyDebouncer is not null) await _notifyDebouncer.FlushAsync();
+        if (_wysiwygDebouncer is not null) await _wysiwygDebouncer.FlushAsync();
+
+        if (_mode == EditorMode.Visual)
+            await UpdateFromWysiwyg();
+        else
+            await NotifyChange();
     }
 
     // ── Smart list continuation ───────────────────────────────
@@ -848,6 +880,9 @@
 
     public async ValueTask DisposeAsync()
     {
+        if (_notifyDebouncer is not null) await _notifyDebouncer.DisposeAsync();
+        if (_wysiwygDebouncer is not null) await _wysiwygDebouncer.DisposeAsync();
+        _historyTimer?.Stop(); _historyTimer?.Dispose();
         _dotnetRef?.Dispose();
         if (_jsModule is not null)
         {

@@ -41,6 +41,29 @@ public class EditorOptionsTests
     }
 
     [TestMethod]
+    public void DebounceDelay_DefaultsTo500()
+    {
+        var opts = new EditorOptions();
+        opts.DebounceDelay.Should().Be(500,
+            "default must reduce SignalR round-trips on Blazor Server without any consumer configuration");
+    }
+
+    [TestMethod]
+    public void DebounceDelay_CanBeSetToZero_ForImmediateBehavior()
+    {
+        var opts = new EditorOptions { DebounceDelay = 0 };
+        opts.DebounceDelay.Should().Be(0,
+            "zero must opt out of debouncing and restore per-keystroke ValueChanged (WASM or legacy use)");
+    }
+
+    [TestMethod]
+    public void DebounceDelay_CanBeSetToCustomValue()
+    {
+        var opts = new EditorOptions { DebounceDelay = 300 };
+        opts.DebounceDelay.Should().Be(300);
+    }
+
+    [TestMethod]
     public void OverflowItems_DefaultsToNonEmptyList()
     {
         var opts = new EditorOptions();

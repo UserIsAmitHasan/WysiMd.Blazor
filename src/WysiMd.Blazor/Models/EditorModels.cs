@@ -119,6 +119,12 @@ public class EditorOptions
     public bool ReadOnly { get; set; }
 
     /// <summary>
+    /// Milliseconds of typing inactivity before ValueChanged fires. 0 = fire on every keystroke (old behavior).
+    /// Default 500. Recommended for Blazor Server to reduce SignalR round-trips.
+    /// </summary>
+    public int DebounceDelay { get; set; } = 500;
+
+    /// <summary>
     /// Per-item overrides keyed by toolbar item id (e.g. "bold", "image").
     /// Use to hide, re-icon, or re-label any built-in toolbar button.
     /// </summary>

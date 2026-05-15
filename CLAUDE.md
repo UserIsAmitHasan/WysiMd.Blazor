@@ -94,22 +94,18 @@ dotnet pack src/WysiMd.Blazor --configuration Release --output ./artifacts
 
 ## Integration Test Prerequisites
 
-See **`docs/sample-apps.md`** for the full sample-app specification (csproj layout, page inventory, HttpClient/docs wiring). Summary:
+See **`docs/integration-tests.md`** for the full runbook including Playwright version troubleshooting.
 
-The Playwright tests target `WysiMd.Blazor.Sample` at `http://localhost:5100`. Use `dotnet run` — not `dotnet serve` — because deep routes require SPA fallback routing.
-
+**Quick start:**
 ```powershell
-# Terminal 1 — leave running
-dotnet run --project samples/WysiMd.Blazor.Sample --urls http://localhost:5100
+# Terminal 1 — leave running (defaults to http://localhost:5100)
+dotnet run --project samples/WysiMd.Blazor.Sample
 
 # Terminal 2
 dotnet test tests/WysiMd.Blazor.IntegrationTests
 ```
 
-If Playwright browsers are missing:
-```powershell
-& "tests\WysiMd.Blazor.IntegrationTests\bin\Debug\net10.0\playwright.ps1" install chromium
-```
+**If tests fail with "Executable doesn't exist"** — Playwright package version doesn't match the installed browser. Check `docs/integration-tests.md` for the version table and update the csproj. Current package: `Microsoft.Playwright 1.59.0` (matches `chromium_headless_shell-1217`). Both `Microsoft.Playwright` and `Microsoft.Playwright.MSTest` must be the same version.
 
 ## Key Design Rules
 
