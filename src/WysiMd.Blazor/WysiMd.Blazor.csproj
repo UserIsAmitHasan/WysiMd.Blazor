@@ -9,7 +9,7 @@
 
     <!-- NuGet package metadata -->
     <PackageId>WysiMd.Blazor</PackageId>
-    <Version>1.0.3</Version>
+    <Version>1.1.0</Version>
     <Authors>Autorior</Authors>
     <Company>Autorior</Company>
     <Product>WysiMd.Blazor</Product>

@@ -186,6 +186,7 @@ Users switch modes via the toolbar toggle button. Default is `EditorMode.Visual`
 | `EnabledToolbarItems` | `List<string>` | all items | Ordered list of toolbar item IDs to display |
 | `OverflowItems` | `List<string>` | secondary items | Item IDs shown in the `···` overflow dropdown |
 | `ToolbarItemOverrides` | `Dictionary<string, ToolbarItemOptions>` | `{}` | Per-item overrides: `Hidden`, `Icon`, `Tooltip`, `CssClass` |
+| `DebounceDelay` | `int` | `500` | Ms of inactivity before `ValueChanged` fires. Set to `0` for per-keystroke (Blazor WASM default behaviour). Recommended for Blazor Server. |
 
 ---
 

@@ -6,6 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and
 
 ---
 
+## [1.1.0] – 2026-05-15
+
+### Added
+- `EditorOptions.DebounceDelay` (default `500ms`) — debounces `ValueChanged` notifications to reduce SignalR round-trips on Blazor Server. Set to `0` to restore per-keystroke behaviour.
+- Blazor Server support — the editor is now viable on Blazor Server with responsive typing and no keystroke storms.
+
+### Fixed
+- `_historyTimer` was never disposed — minor memory leak now resolved.
+- `OnParametersSet` no longer resets editor content mid-typing when the parent re-renders and echoes back the last notified value.
+
+---
+
 ## [1.0.3] – 2026-05-11
 
 ### Changed
