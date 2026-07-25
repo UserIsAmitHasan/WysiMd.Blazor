@@ -41,6 +41,24 @@ window.WysiMdBlazor = {
     },
 
     /**
+     * Set the WYSIWYG contenteditable HTML without going through Blazor's render tree.
+     * Blazor must not own these nodes — document.execCommand mutates them and a later
+     * MarkupString refresh would call removeChild on detached nodes.
+     */
+    setPreviewHtml: function (elementId, html) {
+        const el = document.getElementById(elementId);
+        if (!el || el.innerHTML === html) return;
+        el.innerHTML = html;
+        // DOM replaced — previous caret offsets are no longer meaningful.
+        if (this._lastLiveSelection?.elementId === elementId) {
+            this._lastLiveSelection = { elementId: elementId, start: 0, end: 0 };
+        }
+        if (this._savedSelection?.elementId === elementId) {
+            this._savedSelection = null;
+        }
+    },
+
+    /**
      * Auto-resize a textarea to fit its content.
      */
     autoResize: function (elementId) {
@@ -152,6 +170,7 @@ window.WysiMdBlazor = {
                 
                 let action = null;
                 if (shift) {
+                    if (key === 'z') action = 'redo';
                     if (key === 'x') action = 'strikethrough';
                     if (key === '8' || key === '*') action = 'unordered-list';
                     if (key === '7' || key === '&') action = 'ordered-list';
@@ -180,23 +199,207 @@ window.WysiMdBlazor = {
  * WYSIWYG: Execute a rich text command.
  */
     /**
-     * Save current selection in visual mode.
+     * Save current selection in visual mode as character offsets inside the editor.
+     * Prefers a live selection still inside the editor; otherwise freezes the last
+     * tracked caret (so toolbar clicks / Ctrl+L after focus moves still work).
      */
-    saveSelection: function () {
-        const sel = window.getSelection();
-        if (sel.rangeCount > 0) {
-            this._savedSelection = sel.getRangeAt(0);
+    saveSelection: function (elementId) {
+        const el = elementId ? document.getElementById(elementId) : null;
+        if (el) {
+            this._captureLiveSelection(el, elementId);
         }
+
+        if (this._lastLiveSelection && (!elementId || this._lastLiveSelection.elementId === elementId)) {
+            this._savedSelection = {
+                elementId: this._lastLiveSelection.elementId,
+                start: this._lastLiveSelection.start,
+                end: this._lastLiveSelection.end
+            };
+            return;
+        }
+
+        this._savedSelection = null;
     },
 
     /**
      * Restore saved selection in visual mode.
      */
-    restoreSelection: function () {
-        if (!this._savedSelection) return;
+    restoreSelection: function (elementId) {
+        const saved = this._savedSelection || this._lastLiveSelection;
+        if (!saved) return false;
+
+        const id = elementId || saved.elementId;
+        const ok = this.setCaretOffset(id, saved.start, saved.end);
+        // Consumed — subsequent inserts should follow the live caret.
+        this._savedSelection = null;
+        return ok;
+    },
+
+    /**
+     * Read the current caret as character offsets inside the editor.
+     * Returns { start, end } or null when there is no in-editor selection.
+     */
+    getCaretOffset: function (elementId) {
+        const el = document.getElementById(elementId);
+        if (!el) return null;
+
+        this._captureLiveSelection(el, elementId);
+        const live = this._lastLiveSelection;
+        if (!live || live.elementId !== elementId) return null;
+        return { start: live.start, end: live.end };
+    },
+
+    /**
+     * Place the caret at the given character offsets inside the editor.
+     */
+    setCaretOffset: function (elementId, start, end) {
+        const el = document.getElementById(elementId);
+        if (!el) return false;
+
+        const startPos = this._nodeAtOffset(el, typeof start === 'number' ? start : 0);
+        const endPos = this._nodeAtOffset(el, typeof end === 'number' ? end : startPos ? start : 0);
+        if (!startPos || !endPos) return false;
+
+        try {
+            const range = document.createRange();
+            range.setStart(startPos.node, startPos.offset);
+            range.setEnd(endPos.node, endPos.offset);
+
+            el.focus({ preventScroll: true });
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+
+            this._lastLiveSelection = {
+                elementId: elementId,
+                start: typeof start === 'number' ? start : 0,
+                end: typeof end === 'number' ? end : (typeof start === 'number' ? start : 0)
+            };
+            return true;
+        } catch {
+            return false;
+        }
+    },
+
+    _captureLiveSelection: function (el, elementId) {
         const sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(this._savedSelection);
+        if (!sel || sel.rangeCount === 0) return;
+
+        const range = sel.getRangeAt(0);
+        if (!el.contains(range.commonAncestorContainer)) return;
+
+        this._lastLiveSelection = {
+            elementId: elementId || el.id,
+            start: this._offsetInEditor(el, range.startContainer, range.startOffset),
+            end: this._offsetInEditor(el, range.endContainer, range.endOffset)
+        };
+    },
+
+    /** Return the current range only when it lives inside the editor. */
+    _rangeInEditor: function (el) {
+        if (!el) return null;
+        const sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0) return null;
+        const range = sel.getRangeAt(0);
+        if (!el.contains(range.commonAncestorContainer)) return null;
+        return range;
+    },
+
+    /**
+     * Build a Range from the last tracked offsets, or collapse at the end of the editor.
+     * Returns null only when the element itself is missing.
+     */
+    _fallbackRange: function (el, elementId) {
+        if (!el) return null;
+
+        const saved = this._savedSelection
+            || (this._lastLiveSelection?.elementId === (elementId || el.id) ? this._lastLiveSelection : null);
+
+        if (saved) {
+            const start = this._nodeAtOffset(el, saved.start);
+            const end = this._nodeAtOffset(el, saved.end);
+            if (start && end) {
+                try {
+                    const range = document.createRange();
+                    range.setStart(start.node, start.offset);
+                    range.setEnd(end.node, end.offset);
+                    return range;
+                } catch { /* fall through */ }
+            }
+        }
+
+        try {
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            range.collapse(false);
+            return range;
+        } catch {
+            return null;
+        }
+    },
+
+    /** Ensure a usable in-editor Range, restoring saved offsets when needed. */
+    _ensureEditorRange: function (elementId) {
+        const el = document.getElementById(elementId);
+        if (!el) return null;
+
+        if (elementId) {
+            this.restoreSelection(elementId);
+        }
+
+        let range = this._rangeInEditor(el);
+        if (range) return range;
+
+        range = this._fallbackRange(el, elementId);
+        if (!range) return null;
+
+        try {
+            el.focus({ preventScroll: true });
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+            return range;
+        } catch {
+            return null;
+        }
+    },
+
+    /** Character offset from the start of the editor to (node, offset). */
+    _offsetInEditor: function (el, node, offset) {
+        if (!el) return 0;
+
+        try {
+            const pre = document.createRange();
+            pre.selectNodeContents(el);
+            pre.setEnd(node, offset);
+            return pre.toString().length;
+        } catch {
+            return 0;
+        }
+    },
+
+    /** Resolve a character offset back to a (textNode, offset) pair inside el. */
+    _nodeAtOffset: function (el, target) {
+        let remaining = typeof target === 'number' ? target : 0;
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        let lastText = null;
+
+        while (walker.nextNode()) {
+            const text = walker.currentNode;
+            lastText = text;
+            const len = text.textContent.length;
+            if (remaining <= len) {
+                return { node: text, offset: remaining };
+            }
+            remaining -= len;
+        }
+
+        if (lastText) {
+            return { node: lastText, offset: lastText.textContent.length };
+        }
+
+        // Empty editor — caret at the element itself.
+        return { node: el, offset: 0 };
     },
 
     /**
@@ -254,18 +457,58 @@ window.WysiMdBlazor = {
 
     /**
      * WYSIWYG: Insert an anchor link around the selection.
+     * Restores the saved caret first so dialogs / focus changes cannot append at the end.
      */
-    insertLink: function (url, text) {
+    insertLink: function (url, text, elementId) {
+        const el = elementId ? document.getElementById(elementId) : null;
+        const range = elementId
+            ? this._ensureEditorRange(elementId)
+            : (window.getSelection()?.rangeCount ? window.getSelection().getRangeAt(0) : null);
+
+        if (!range || (el && !el.contains(range.commonAncestorContainer))) {
+            return false;
+        }
+
         const sel = window.getSelection();
-        if (!sel.rangeCount) return;
-        const range = sel.getRangeAt(0);
         const selected = range.toString();
         const a = document.createElement('a');
         a.href = url;
         a.textContent = selected.length > 0 ? selected : text;
         range.deleteContents();
         range.insertNode(a);
-        sel.collapse(a, 1);
+
+        // Place caret after the link so subsequent typing is not swallowed into the anchor.
+        try {
+            const after = document.createRange();
+            after.setStartAfter(a);
+            after.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(after);
+        } catch {
+            sel.collapse(a, 1);
+        }
+
+        if (el) {
+            this._captureLiveSelection(el, el.id);
+        }
+        this._savedSelection = null;
+        return true;
+    },
+
+    /**
+     * Insert HTML at the saved selection (tables, images).
+     */
+    insertHtmlAtSelection: function (elementId, html) {
+        const el = document.getElementById(elementId);
+        const range = this._ensureEditorRange(elementId);
+        if (!range || !el || !el.contains(range.commonAncestorContainer)) {
+            return false;
+        }
+
+        document.execCommand('insertHTML', false, html);
+        this._captureLiveSelection(el, elementId);
+        this._savedSelection = null;
+        return true;
     },
 
     /**
@@ -411,14 +654,28 @@ window.WysiMdBlazor = {
     },
 
     /**
-     * WYSIWYG: Register a selectionchange listener that fires active-format state back to Blazor.
+     * WYSIWYG: Register a selectionchange listener that fires active-format state back to Blazor
+     * and continuously tracks caret offsets so Tab-away / dialogs can restore them.
      */
     registerSelectionListener: function (elementId, dotnetRef) {
         const el = document.getElementById(elementId);
         if (!el) return;
 
+        // Drop any prior listeners if re-registered on the same element.
+        if (el._selectionCleanup) {
+            el._selectionCleanup();
+        }
+
+        let pointerFocus = false;
+
+        const trackSelection = () => {
+            WysiMdBlazor._captureLiveSelection(el, elementId);
+        };
+
         const query = () => {
-            // Only fire when focus is inside this editor element
+            trackSelection();
+
+            // Only fire format state when focus is inside this editor element
             const active = document.activeElement;
             if (!el.contains(active) && active !== el) return;
 
@@ -449,8 +706,29 @@ window.WysiMdBlazor = {
             dotnetRef.invokeMethodAsync('UpdateActiveFormats', formats);
         };
 
+        const onPointerDown = () => { pointerFocus = true; };
+
+        const onFocus = () => {
+            const fromPointer = pointerFocus;
+            pointerFocus = false;
+            if (fromPointer) {
+                trackSelection();
+                return;
+            }
+
+            // Tab / programmatic focus — restore last caret instead of jumping to the start.
+            requestAnimationFrame(() => {
+                if (WysiMdBlazor._lastLiveSelection?.elementId === elementId) {
+                    WysiMdBlazor._savedSelection = { ...WysiMdBlazor._lastLiveSelection };
+                    WysiMdBlazor.restoreSelection(elementId);
+                }
+            });
+        };
+
         document.addEventListener('selectionchange', query);
         el.addEventListener('keyup', query);
+        el.addEventListener('pointerdown', onPointerDown);
+        el.addEventListener('focus', onFocus);
 
         // Make query available to execCommand for post-toggle re-query
         WysiMdBlazor._selectionCallback = query;
@@ -458,6 +736,8 @@ window.WysiMdBlazor = {
         el._selectionCleanup = () => {
             document.removeEventListener('selectionchange', query);
             el.removeEventListener('keyup', query);
+            el.removeEventListener('pointerdown', onPointerDown);
+            el.removeEventListener('focus', onFocus);
             delete WysiMdBlazor._selectionCallback;
         };
     },

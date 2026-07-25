@@ -13,7 +13,10 @@
             if (!IsHidden("heading"))
             {
                 <div class="wysimd-toolbar-group" data-tooltip="Heading Level" title="Heading Level">
-                    <select class="wysimd-heading-select" @onchange="OnHeadingChange" disabled="@ReadOnly">
+                    <select class="wysimd-heading-select"
+                            value="@_headingSelectValue"
+                            @onchange="OnHeadingChange"
+                            disabled="@ReadOnly">
                         <option value="0">¶</option>
                         <option value="1">H1</option>
                         <option value="2">H2</option>
@@ -132,6 +135,7 @@
     [Parameter] public EventCallback<int> HeadingLevelChanged { get; set; }
 
     private bool _showOverflow;
+    private string _headingSelectValue = "0";
 
     private void ToggleOverflow()
     {
@@ -139,10 +143,16 @@
         StateHasChanged();
     }
 
-    private void OnHeadingChange(ChangeEventArgs e)
+    private async Task OnHeadingChange(ChangeEventArgs e)
     {
         if (!ReadOnly && int.TryParse(e.Value?.ToString(), out int level))
-            HeadingLevelChanged.InvokeAsync(level);
+        {
+            await HeadingLevelChanged.InvokeAsync(level);
+        }
+
+        // Reset so picking the same level again still fires change.
+        _headingSelectValue = "0";
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task OnFileNameInput(ChangeEventArgs e)
