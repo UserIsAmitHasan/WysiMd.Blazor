@@ -12,7 +12,7 @@ WysiMd.Blazor/
 │       ├── WysiMd.Blazor.csproj
 │       ├── Models/
 │       │   ├── EditorModels.cs    # EditorOptions, EditorMode, ToolbarItem, EditorSelection, EditorStats
-│       │   └── MarkdownDocument.cs # Content state + undo/redo (max 50 entries, 1 s debounce)
+│       │   └── MarkdownDocument.cs # Content state + undo/redo (max 50 entries, caret-aware HistoryEntry)
 │       ├── Services/
 │       │   ├── MarkdownService.cs # Pure-C# markdown API (Markdig rendering + text transforms)
 │       │   └── ServiceCollectionExtensions.cs
@@ -38,7 +38,7 @@ WysiMd.Blazor/
 ## Architecture
 
 ### Dual Editing Modes
-- **Visual (WYSIWYG):** contenteditable div with live HTML preview. Toolbar uses `document.execCommand`. JS `getMarkdownFromHtml()` walks the DOM to reconstruct Markdown on every edit.
+- **Visual (WYSIWYG):** contenteditable div with live HTML preview. Toolbar uses `document.execCommand`. JS `getMarkdownFromHtml()` walks the DOM to reconstruct Markdown on every edit. When interactive, Blazor renders the div **empty** and JS owns its HTML via `setPreviewHtml` — Blazor must never track those nodes, or `execCommand` mutations cause `removeChild` crashes on re-render.
 - **Raw:** plain `<textarea>`. All formatting transforms are pure C# (`MarkdownService`). Cursor is read/restored via JS `getSelection`/`setSelection`.
 
 ### State Flow
@@ -47,12 +47,16 @@ User types → OnSourceInput / OnWysiwygInput
   → SetContentSilent (no history push)
   → RefreshPreview (re-render HTML)
   → NotifyChange (fire ValueChanged + OnChange callbacks)
-  → [1 s debounce] → PushHistory
+
+Undo checkpoints: CheckpointAsync snapshots the *pre-edit* content + caret
+before an edit applies; edits within 1 s coalesce into one HistoryEntry.
 ```
 
 ### JS Surface (window.WysiMdBlazor)
 All JS is vanilla, no external libraries. Key functions:
 - `getSelection(id)` / `setSelection(id, s, e)` / `setValueAndSelection(id, val, s, e)` — cursor management
+- `setPreviewHtml(id, html)` — JS-owned contenteditable HTML replace (keeps Blazor out of the DOM)
+- `getCaretOffset(id)` / `setCaretOffset(id, s, e)` — visual-mode caret as character offsets
 - `registerShortcuts(id, dotnetRef)` — maps Ctrl+B/I/Z/Y/… to C# `HandleShortcut`
 - `registerSelectionListener(id, dotnetRef)` — polls `queryCommandState` in visual mode
 - `getMarkdownFromHtml(id)` — DOM-walk to reconstruct Markdown (complex; touch carefully)

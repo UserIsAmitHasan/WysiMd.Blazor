@@ -6,6 +6,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- Crash in visual mode (`Cannot read properties of null (reading 'removeChild')`) — Blazor no longer owns the contenteditable DOM nodes; JS sets the preview HTML so `document.execCommand` can't detach tracked nodes. ([#1](https://github.com/UserIsAmitHasan/WysiMd.Blazor/pull/1) by [@nzaugg](https://github.com/nzaugg))
+- Heading dropdown now fires again when re-selecting the same level. (#1 by @nzaugg)
+- External `Value` resets from parents using one-way binding are honoured again after the notify echo window (2 s) passes.
+- Undo history checkpoints no longer run on a thread-pool timer thread.
+
+### Changed
+- Undo/redo now stores structured history entries with caret offsets and works identically in visual and raw modes; the caret is restored after undo/redo. (#1 by @nzaugg)
+- Caret and selection survive dialogs, focus loss, and Tab-refocus in visual mode. (#1 by @nzaugg)
+- `Ctrl+Shift+Z` now triggers redo. (#1 by @nzaugg)
+
+### Added
+- `InsertMarkdownAtCaretAsync(string markdown)` public API — programmatically insert markdown at the current caret in either mode, with undo support. (#1 by @nzaugg)
+- `.editorconfig` enforcing the repository code style.
+
+---
+
 ## [1.1.0] – 2026-05-15
 
 ### Added

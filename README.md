@@ -164,6 +164,23 @@ Users switch modes via the toolbar toggle button. Default is `EditorMode.Visual`
 | `OnPrint` | `EventCallback<string>` | Fires when the Print button is clicked |
 | `OnDownloadPdf` | `EventCallback<string>` | Fires when the PDF button is clicked |
 
+### Public methods
+
+Capture the component with `@ref` to call its public API:
+
+```razor
+<MarkdownEditor @ref="editor" @bind-Value="content" />
+<button @onclick='() => editor.InsertMarkdownAtCaretAsync("**inserted**")'>Insert</button>
+
+@code {
+    private MarkdownEditor editor = default!;
+}
+```
+
+| Method | Description |
+|---|---|
+| `InsertMarkdownAtCaretAsync(string markdown)` | Inserts markdown at the current caret (or last tracked caret) in either mode. The insert is a single undo step. |
+
 ---
 
 ## EditorOptions
