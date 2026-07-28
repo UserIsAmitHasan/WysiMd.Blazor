@@ -174,7 +174,13 @@
     private Debouncer? _wysiwygDebouncer;     // visual mode: debounces the full DOM→C# sync
     private bool _suppressNextInput;          // ignores the oninput fired by SetValueAndSelection
     private string? _pendingNotifiedValue;    // set in NotifyChange; cleared when the parent echoes it back
+    private DateTime _pendingNotifiedUtc;     // when _pendingNotifiedValue was set; bounds the echo guard
     private bool _previewHtmlNeedsPush;       // true only when C# owns a content replace (not live edits)
+
+    // How long a stale parent render may lag behind our ValueChanged before a
+    // differing Value is treated as a genuine external reset. Keeps Blazor Server
+    // echo races out while letting one-way-bound parents replace content.
+    private static readonly TimeSpan NotifyEchoWindow = TimeSpan.FromSeconds(2);
 
     // JS interop
     private DotNetObjectReference<MarkdownEditor>? _dotnetRef;
@@ -249,10 +255,16 @@
             return;
         }
 
-        // A parent render can carry an older value than our latest edit — never let it win.
-        if (_pendingNotifiedValue is not null || Value == _document.RawMarkdown)
+        if (Value == _document.RawMarkdown)
             return;
 
+        // A parent render can carry an older value than our latest edit — never let it
+        // win while the echo is still in flight. After the window passes, a differing
+        // Value is a real external reset (e.g. a parent that never rebinds Value).
+        if (_pendingNotifiedValue is not null && DateTime.UtcNow - _pendingNotifiedUtc < NotifyEchoWindow)
+            return;
+
+        _pendingNotifiedValue = null;
         _document = new MarkdownDocument(Value);
         RefreshPreview(pushToDom: true);
     }
@@ -897,6 +909,7 @@
     private async Task NotifyChange()
     {
         _pendingNotifiedValue = _document.RawMarkdown;
+        _pendingNotifiedUtc = DateTime.UtcNow;
         await ValueChanged.InvokeAsync(_document.RawMarkdown);
         await OnChange.InvokeAsync(_document.RawMarkdown);
     }
