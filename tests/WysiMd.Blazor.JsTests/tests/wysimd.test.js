@@ -211,6 +211,10 @@ describe('WysiMdBlazor namespace', () => {
       'execCommand',
       'registerShortcuts',
       'unregisterSelectionListener',
+      'setPreviewHtml',
+      'getCaretOffset',
+      'setCaretOffset',
+      'insertHtmlAtSelection',
     ]
     for (const fn of expected) {
       expect(typeof WysiMdBlazor[fn]).toBe('function', `Expected WysiMdBlazor.${fn} to be a function`)
