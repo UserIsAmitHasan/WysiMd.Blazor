@@ -30,6 +30,11 @@ WysiMd.Blazor/
 │   └── WysiMd.Blazor.JsTests/    # Vitest (vanilla JS functions)
 ├── samples/
 │   └── WysiMd.Blazor.Sample/      # Blazor WASM demo + docs site (integration test target)
+├── tools/
+│   └── WysiMd.Blazor.Capture/     # Playwright + ffmpeg tool that regenerates /assets
+│                                  #   (NOT in the .sln — CI never builds it)
+├── assets/                        # README demo GIF + screenshots (absolute raw.githubusercontent URLs
+│                                  #   in README.md so the NuGet package page renders them too)
 └── docs/                          # Markdown documentation (served by the sample app)
     ├── sample-apps.md             # ← csproj details, page inventory, running locally
     └── mudblazor.md               # MudBlazor integration guide (dialogs, forms, theme sync)
@@ -94,7 +99,14 @@ dotnet run --project samples/WysiMd.Blazor.Sample --urls http://localhost:5100
 
 # Pack NuGet (dry run)
 dotnet pack src/WysiMd.Blazor --configuration Release --output ./artifacts
+
+# Regenerate README demo GIF + screenshots (sample app must be running; needs ffmpeg)
+dotnet run --project tools/WysiMd.Blazor.Capture
 ```
+
+**After any visible UI change** (toolbar, CSS, layout), re-run the capture tool so `/assets` matches
+the shipped component. It depends on `.wysimd-*` class names and `data-action` ids — renaming those
+means updating `tools/WysiMd.Blazor.Capture/Program.cs`.
 
 ## Integration Test Prerequisites
 

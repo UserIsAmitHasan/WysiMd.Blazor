@@ -9,6 +9,13 @@
 **What You See Is Markdown** — a WYSIWYG Markdown editor Razor component for Blazor.
 Always produces clean Markdown. Minimal JavaScript. Mobile friendly. Dark & light themes.
 
+<p align="center">
+  <!-- No width attribute on purpose: the GIF is 760 px wide so it renders 1:1.
+       Browsers resample animated images cheaply, so any scaling looks soft. -->
+  <img src="https://raw.githubusercontent.com/UserIsAmitHasan/WysiMd.Blazor/main/assets/demo.gif"
+       alt="WysiMd.Blazor demo — typing in Visual mode, applying a heading, bold and a list, inserting a table, switching to Raw Markdown, and toggling the dark theme">
+</p>
+
 ---
 
 ## Features
@@ -149,6 +156,11 @@ builder.Services.AddWysiMdBlazor();
 | `EditorMode.Raw` | Plain textarea showing raw Markdown source |
 
 Users switch modes via the toolbar toggle button. Default is `EditorMode.Visual`.
+The same document in both modes:
+
+| Visual | Raw |
+|---|---|
+| <img src="https://raw.githubusercontent.com/UserIsAmitHasan/WysiMd.Blazor/main/assets/editor-visual-light.png" alt="Visual WYSIWYG mode showing a rendered heading, task list, table, blockquote and code block" width="420"> | <img src="https://raw.githubusercontent.com/UserIsAmitHasan/WysiMd.Blazor/main/assets/editor-raw.png" alt="Raw mode showing the Markdown source of the same document" width="420"> |
 
 ---
 
@@ -280,6 +292,8 @@ Sync dark mode by forwarding `MudThemeProvider`'s state to `@bind-IsDarkTheme`, 
 <MarkdownEditor @bind-Value="content" @bind-IsDarkTheme="isDark" />
 ```
 
+<img src="https://raw.githubusercontent.com/UserIsAmitHasan/WysiMd.Blazor/main/assets/editor-visual-dark.png" alt="The editor in dark mode" width="720">
+
 ### CSS custom properties
 
 Override any `--wysimd-*` variable on a parent element:
@@ -319,6 +333,8 @@ WysiMd.Blazor is designed mobile-first:
 <MarkdownEditor @bind-Value="content"
     Options="@(new EditorOptions { Height = "calc(100dvh - 120px)" })" />
 ```
+
+<img src="https://raw.githubusercontent.com/UserIsAmitHasan/WysiMd.Blazor/main/assets/editor-mobile.png" alt="The editor at 390 px width with large touch targets and a horizontally scrolling toolbar" width="300">
 
 See [docs/mobile.md](docs/mobile.md) for the full testing checklist.
 
@@ -387,6 +403,11 @@ WysiMd.Blazor/
 ├── samples/
 │   ├── WysiMd.Blazor.Sample/      # Blazor WASM standalone — 7 demo pages
 │
+├── tools/
+│   └── WysiMd.Blazor.Capture/     # Regenerates the demo GIF + screenshots
+│
+├── assets/                        # README demo GIF + screenshots
+│
 └── docs/                          # Markdown documentation
     ├── getting-started.md
     ├── configuration.md
@@ -421,6 +442,24 @@ npm ci && npm test
 dotnet run --project samples/WysiMd.Blazor.Sample --urls http://localhost:5100 &
 dotnet test tests/WysiMd.Blazor.IntegrationTests
 ```
+
+---
+
+## Regenerating the Demo Assets
+
+The GIF and screenshots above are captured from the running sample app — no mockups. After a UI
+change, re-record them so the README stays honest:
+
+```bash
+# Terminal 1
+dotnet run --project samples/WysiMd.Blazor.Sample --urls http://localhost:5100
+
+# Terminal 2 — writes assets/demo.gif and the four screenshots
+dotnet run --project tools/WysiMd.Blazor.Capture
+```
+
+Requires ffmpeg on `PATH` and Playwright's Chromium (installed by the integration tests).
+See [tools/WysiMd.Blazor.Capture/README.md](tools/WysiMd.Blazor.Capture/README.md) for flags.
 
 ---
 

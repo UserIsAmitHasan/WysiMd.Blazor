@@ -4,6 +4,7 @@ This document outlines the planned direction for WysiMd.Blazor. Items are groupe
 
 ## v1.1 — Editor Polish
 
+- [ ] **Editor body fills its min-height** — `.wysimd-body` is a flex column but has no `flex-grow`, so when the document is shorter than `MinHeight` (or a fixed `Height`) the status bar sits directly under the content and leaves dead space beneath it inside the editor border. Most visible in raw mode, where the textarea stops at its own `min-height: 200px`. Fix: `flex: 1 1 auto; min-height: 0` on `.wysimd-body` plus `height: 100%` on `.wysimd-source` in `WysiMd.Blazor.css`. The capture tool currently patches this at runtime — see [tools/WysiMd.Blazor.Capture](tools/WysiMd.Blazor.Capture/README.md)
 - [ ] **Paste as plain text** — strip HTML when pasting into visual mode (`Ctrl+Shift+V`)
 - [ ] **Find & Replace** — in-editor search panel (`Ctrl+F` / `Ctrl+H`)
 - [ ] **Word wrap toggle** — button to switch between soft-wrap and no-wrap in raw mode

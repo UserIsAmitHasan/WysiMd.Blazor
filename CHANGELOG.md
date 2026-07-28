@@ -22,6 +22,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and
 ### Added
 - `InsertMarkdownAtCaretAsync(string markdown)` public API — programmatically insert markdown at the current caret in either mode, with undo support. (#1 by @nzaugg)
 - `.editorconfig` enforcing the repository code style.
+- Animated demo and screenshots in the README (`assets/`) — Visual/Raw modes, dark theme, and the mobile layout.
+- `tools/WysiMd.Blazor.Capture` — Playwright + ffmpeg tool that regenerates those assets from the running sample app.
 
 ---
 
