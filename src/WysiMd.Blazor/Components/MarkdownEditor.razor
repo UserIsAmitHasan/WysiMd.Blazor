@@ -58,17 +58,21 @@
             </textarea>
         }
 
-        @* Visual: show contenteditable *@
+        @* Visual: show contenteditable.
+           Interactive mode: Blazor renders an empty frame; JS owns the HTML via setPreviewHtml.
+           Non-interactive (prerender / static SSR): MarkupString is fine — no execCommand runs. *@
         @if (_mode == EditorMode.Visual)
         {
             <div id="@_previewId" class="wysimd-preview wysimd-wysiwyg"
                  contenteditable="@(Options.ReadOnly ? "false" : "true")"
                  placeholder="@Options.Placeholder"
                  @oninput="OnWysiwygInput"
-                 @onchange="() => UpdateFromWysiwyg()"
                  @onscroll="OnPreviewScroll"
                  @onblur="FlushNotify">
-                @((MarkupString)_renderedHtml)
+                @if (!RendererInfo.IsInteractive)
+                {
+                    @((MarkupString)_renderedHtml)
+                }
             </div>
         }
 
@@ -158,14 +162,17 @@
     private readonly string _previewId = $"wysimd-pre-{Guid.NewGuid():N}";
     private readonly string _fileInputId = $"wysimd-file-{Guid.NewGuid():N}";
 
-    // Undo/Redo debouncing
-    private System.Timers.Timer? _historyTimer;
+    // Undo/Redo coalescing: typing within this window merges into one checkpoint.
+    private DateTime _lastCheckpointUtc = DateTime.MinValue;
+    private static readonly TimeSpan CheckpointCoalesceWindow = TimeSpan.FromSeconds(1);
 
     // Debounce: delays ValueChanged notifications to reduce SignalR round-trips on Blazor Server
     private Debouncer? _notifyDebouncer;      // raw mode: debounces NotifyChange
     private Debouncer? _wysiwygDebouncer;     // visual mode: debounces the full DOM→C# sync
     private bool _suppressNextInput;          // ignores the oninput fired by SetValueAndSelection
-    private string _lastNotifiedValue = string.Empty; // guards OnParametersSet against echoed values
+    private string? _pendingNotifiedValue;    // set in NotifyChange; cleared when the parent echoes it back
+    private string? _syncedHtml;              // HTML last pushed to the contenteditable via JS
+    private bool _previewHtmlNeedsPush;       // true only when C# owns a content replace (not live edits)
 
     // JS interop
     private DotNetObjectReference<MarkdownEditor>? _dotnetRef;
@@ -200,7 +207,7 @@
         _isDark = IsDarkTheme || Options.IsDarkTheme;
         _mode = Options.DefaultMode;
         _document = new MarkdownDocument(Value);
-        RefreshPreview();
+        RefreshPreview(pushToDom: true);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -226,34 +233,39 @@
 
             _shortcutsRegistered = true;
         }
+
+        await SyncPreviewHtml();
     }
 
     protected override void OnParametersSet()
     {
         _isDark = IsDarkTheme || Options.IsDarkTheme;
 
-        // Only reset when the parent pushed a truly external value.
-        // If Value matches _lastNotifiedValue the parent is echoing our own change back.
-        if (Value != _document.RawMarkdown && Value != _lastNotifiedValue)
+        if (Value == _pendingNotifiedValue)
         {
-            _document = new MarkdownDocument(Value);
-            _lastNotifiedValue = Value;
-            RefreshPreview();
+            _pendingNotifiedValue = null;
+            return;
         }
+
+        // A parent render can carry an older value than our latest edit — never let it win.
+        if (_pendingNotifiedValue is not null || Value == _document.RawMarkdown)
+            return;
+
+        _document = new MarkdownDocument(Value);
+        RefreshPreview(pushToDom: true);
     }
 
     // ── Input handling ────────────────────────────────────────
 
-    private void OnSourceInput(ChangeEventArgs e)
+    private async Task OnSourceInput(ChangeEventArgs e)
     {
         if (Options.ReadOnly) return;
         if (_suppressNextInput) { _suppressNextInput = false; return; }
 
         string newValue = e.Value?.ToString() ?? string.Empty;
 
-        _historyTimer ??= CreateHistoryTimer();
-        _historyTimer.Stop();
-        _historyTimer.Start();
+        // Checkpoint the pre-edit content (coalesced) before applying the silent update.
+        await CheckpointAsync(force: false);
 
         _document.SetContentSilent(newValue);
         RefreshPreview();
@@ -262,14 +274,6 @@
             getDelay: () => Options.DebounceDelay,
             action: () => InvokeAsync(NotifyChange));
         _notifyDebouncer.Schedule();
-    }
-
-    private System.Timers.Timer CreateHistoryTimer()
-    {
-        var timer = new System.Timers.Timer(1000); // Snapshot every 1s of inactivity
-        timer.AutoReset = false;
-        timer.Elapsed += (s, e) => _document.PushHistory();
-        return timer;
     }
 
     private async Task OnKeyDown(KeyboardEventArgs e)
@@ -407,37 +411,43 @@
             return;
         }
 
+        if (action is "undo" or "redo")
+        {
+            await ApplyHistoryAsync(action == "undo");
+            return;
+        }
+
         if (_mode == EditorMode.Visual)
         {
             switch (action)
             {
-                case "undo": await SafeJs("WysiMdBlazor.execCommand", "undo"); break;
-                case "redo": await SafeJs("WysiMdBlazor.execCommand", "redo"); break;
-                case "bold": await SafeJs("WysiMdBlazor.execCommand", "bold"); break;
-                case "italic": await SafeJs("WysiMdBlazor.execCommand", "italic"); break;
-                case "strikethrough": await SafeJs("WysiMdBlazor.execCommand", "strikethrough"); break;
-                case "unordered-list": await SafeJs("WysiMdBlazor.execCommand", "insertUnorderedList"); break;
-                case "ordered-list": await SafeJs("WysiMdBlazor.execCommand", "insertOrderedList"); break;
-                case "task-list": await SafeJs("WysiMdBlazor.execCommand", "insertUnorderedList"); break;
-                case "horizontal-rule": await SafeJs("WysiMdBlazor.execCommand", "insertHorizontalRule"); break;
-                case "code": await SafeJs("WysiMdBlazor.insertInlineCode"); break;
-                case "code-block": await SafeJs("WysiMdBlazor.insertCodeBlock"); break;
-                case "blockquote": await SafeJs("WysiMdBlazor.insertBlockquote"); break;
+                case "bold":
+                case "italic":
+                case "strikethrough":
+                case "unordered-list":
+                case "ordered-list":
+                case "task-list":
+                case "horizontal-rule":
+                case "code":
+                case "code-block":
+                case "blockquote":
+                case "insert-row":
+                case "delete-row":
+                case "insert-col":
+                case "delete-col":
+                case "auto-sum":
+                    await CheckpointAsync(force: true);
+                    break;
                 case "link":
-                    await SafeJs("WysiMdBlazor.saveSelection");
+                    await SafeJs("WysiMdBlazor.saveSelection", _previewId);
                     _showLinkDialog = true;
                     return;
-                case "insert-row": await SafeJs("WysiMdBlazor.insertRow"); break;
-                case "delete-row": await SafeJs("WysiMdBlazor.deleteRow"); break;
-                case "insert-col": await SafeJs("WysiMdBlazor.insertColumn"); break;
-                case "delete-col": await SafeJs("WysiMdBlazor.deleteColumn"); break;
-                case "auto-sum": await SafeJs("WysiMdBlazor.autoSum"); break;
-                case "table": 
-                    await SafeJs("WysiMdBlazor.saveSelection");
-                    _showTableDialog = true; 
+                case "table":
+                    await SafeJs("WysiMdBlazor.saveSelection", _previewId);
+                    _showTableDialog = true;
                     return;
                 case "image":
-                    await SafeJs("WysiMdBlazor.saveSelection");
+                    await SafeJs("WysiMdBlazor.saveSelection", _previewId);
                     await SafeJs("WysiMdBlazor.clickElement", _fileInputId);
                     return;
                 case "print":
@@ -450,28 +460,31 @@
                     await DownloadMarkdown();
                     return;
             }
-            await UpdateFromWysiwyg(refreshPreview: false);
+
+            switch (action)
+            {
+                case "bold": await SafeJs("WysiMdBlazor.execCommand", "bold"); break;
+                case "italic": await SafeJs("WysiMdBlazor.execCommand", "italic"); break;
+                case "strikethrough": await SafeJs("WysiMdBlazor.execCommand", "strikethrough"); break;
+                case "unordered-list": await SafeJs("WysiMdBlazor.execCommand", "insertUnorderedList"); break;
+                case "ordered-list": await SafeJs("WysiMdBlazor.execCommand", "insertOrderedList"); break;
+                case "task-list": await SafeJs("WysiMdBlazor.execCommand", "insertUnorderedList"); break;
+                case "horizontal-rule": await SafeJs("WysiMdBlazor.execCommand", "insertHorizontalRule"); break;
+                case "code": await SafeJs("WysiMdBlazor.insertInlineCode"); break;
+                case "code-block": await SafeJs("WysiMdBlazor.insertCodeBlock"); break;
+                case "blockquote": await SafeJs("WysiMdBlazor.insertBlockquote"); break;
+                case "insert-row": await SafeJs("WysiMdBlazor.insertRow"); break;
+                case "delete-row": await SafeJs("WysiMdBlazor.deleteRow"); break;
+                case "insert-col": await SafeJs("WysiMdBlazor.insertColumn"); break;
+                case "delete-col": await SafeJs("WysiMdBlazor.deleteColumn"); break;
+                case "auto-sum": await SafeJs("WysiMdBlazor.autoSum"); break;
+            }
+            await UpdateFromWysiwyg();
             return;
         }
 
         switch (action)
         {
-            case "undo":
-                if (_document.Undo())
-                {
-                    RefreshPreview();
-                    await SetValueAndSelection(_document.RawMarkdown, 0, 0);
-                    await NotifyChange();
-                }
-                return;
-            case "redo":
-                if (_document.Redo())
-                {
-                    RefreshPreview();
-                    await SetValueAndSelection(_document.RawMarkdown, 0, 0);
-                    await NotifyChange();
-                }
-                return;
             case "table":
                 _showTableDialog = true;
                 return;
@@ -554,11 +567,58 @@
         }
     }
 
+    /// <summary>
+    /// Insert markdown at the current caret (or the last tracked in-editor caret).
+    /// Checkpoints history first so the insert is undoable.
+    /// </summary>
+    public async Task InsertMarkdownAtCaretAsync(string markdown)
+    {
+        if (Options.ReadOnly || string.IsNullOrEmpty(markdown)) return;
+
+        await CheckpointAsync(force: true);
+
+        if (_mode == EditorMode.Visual)
+        {
+            string html = InlineHtmlFor(markdown);
+            await SafeJs("WysiMdBlazor.insertHtmlAtSelection", _previewId, html);
+            await UpdateFromWysiwyg();
+            return;
+        }
+
+        var (start, end) = await GetSelectionRange();
+        string content = _document.RawMarkdown;
+        start = Math.Clamp(start, 0, content.Length);
+        end = Math.Clamp(end, start, content.Length);
+        string updated = string.Concat(content.AsSpan(0, start), markdown, content.AsSpan(end));
+        _document.SetContentSilent(updated);
+        RefreshPreview(pushToDom: false);
+        await SetValueAndSelection(updated, start + markdown.Length, start + markdown.Length);
+        await NotifyChange();
+    }
+
+    /// <summary>
+    /// Render markdown to HTML and unwrap a single top-level &lt;p&gt; so inline
+    /// content (e.g. a link) splices into the current paragraph instead of nesting a block.
+    /// </summary>
+    private string InlineHtmlFor(string markdown)
+    {
+        string html = _md.ToHtml(markdown).Trim();
+        if (html.StartsWith("<p>", StringComparison.OrdinalIgnoreCase)
+            && html.EndsWith("</p>", StringComparison.OrdinalIgnoreCase)
+            && html.IndexOf("<p>", 3, StringComparison.OrdinalIgnoreCase) < 0)
+        {
+            return html[3..^4];
+        }
+        return html;
+    }
+
     private async Task HandleHeading(int level)
     {
         if (_mode == EditorMode.Visual)
         {
+            await CheckpointAsync(force: true);
             string tag = level == 0 ? "p" : $"h{level}";
+            await SafeJs("WysiMdBlazor.restoreSelection", _previewId);
             await SafeJs("WysiMdBlazor.execCommand", "formatBlock", tag);
             await UpdateFromWysiwyg();
             return;
@@ -581,10 +641,10 @@
 
         if (_mode == EditorMode.Visual)
         {
-            await SafeJs("WysiMdBlazor.restoreSelection");
+            await CheckpointAsync(force: true);
             // Append an empty paragraph so the user can click/arrow out of the table
             string tableHtml = _md.ToHtml(table) + "<p><br></p>";
-            await SafeJs("WysiMdBlazor.execCommand", "insertHTML", tableHtml);
+            await SafeJs("WysiMdBlazor.insertHtmlAtSelection", _previewId, tableHtml);
             await UpdateFromWysiwyg();
         }
         else
@@ -605,8 +665,8 @@
 
         if (_mode == EditorMode.Visual)
         {
-            await SafeJs("WysiMdBlazor.restoreSelection");
-            await SafeJs("WysiMdBlazor.insertLink", result.Url, result.Text);
+            await CheckpointAsync(force: true);
+            await SafeJs("WysiMdBlazor.insertLink", result.Url, result.Text, _previewId);
             await UpdateFromWysiwyg();
             return;
         }
@@ -635,9 +695,9 @@
 
         if (_mode == EditorMode.Visual)
         {
-            await SafeJs("WysiMdBlazor.restoreSelection");
+            await CheckpointAsync(force: true);
             string imgHtml = $"<img src=\"{dataUrl}\" alt=\"{file.Name}\" />";
-            await SafeJs("WysiMdBlazor.execCommand", "insertHTML", imgHtml);
+            await SafeJs("WysiMdBlazor.insertHtmlAtSelection", _previewId, imgHtml);
             await UpdateFromWysiwyg();
         }
         else
@@ -679,9 +739,11 @@
 
         _mode = mode;
         _shortcutsRegistered = false; // re-register after re-render
+        // New preview element (or leaving visual) — force a full HTML push on next render.
+        _syncedHtml = null;
         if (mode == EditorMode.Visual)
         {
-            RefreshPreview();
+            RefreshPreview(pushToDom: true);
         }
     }
 
@@ -700,10 +762,44 @@
 
     // ── Preview ───────────────────────────────────────────────
 
-    private void RefreshPreview()
+    /// <param name="pushToDom">
+    /// When true, the next render pushes HTML into the contenteditable (C# is source of truth).
+    /// When false, only stats/markdown state update — never rewrite the live DOM the user is editing.
+    /// </param>
+    private void RefreshPreview(bool pushToDom = false)
     {
         _renderedHtml = _md.ToHtml(_document.RawMarkdown);
         _stats = _md.GetStats(_document.RawMarkdown);
+        if (pushToDom)
+        {
+            _previewHtmlNeedsPush = true;
+        }
+    }
+
+    /// <summary>
+    /// Push rendered HTML into the contenteditable via JS so Blazor never owns those nodes.
+    /// Only runs when C# intentionally replaced content (mount, external Value, mode switch) —
+    /// never after reading the live DOM back, which would wipe the caret and user edits.
+    /// </summary>
+    private async Task SyncPreviewHtml()
+    {
+        if (!_previewHtmlNeedsPush)
+            return;
+
+        if (_mode != EditorMode.Visual || !RendererInfo.IsInteractive)
+            return;
+
+        // Do not rewrite the DOM while a dialog holds a saved caret — drop the pending
+        // push so stale content cannot overwrite the editor after the dialog closes.
+        if (_showLinkDialog || _showTableDialog)
+        {
+            _previewHtmlNeedsPush = false;
+            return;
+        }
+
+        _previewHtmlNeedsPush = false;
+        _syncedHtml = _renderedHtml;
+        await SafeJs("WysiMdBlazor.setPreviewHtml", _previewId, _renderedHtml);
     }
 
     private async Task OnSourceScroll()
@@ -724,11 +820,11 @@
 
         _wysiwygDebouncer ??= new Debouncer(
             getDelay: () => Options.DebounceDelay,
-            action: () => InvokeAsync(() => UpdateFromWysiwyg(refreshPreview: false)));
+            action: () => InvokeAsync(UpdateFromWysiwyg));
         _wysiwygDebouncer.Schedule();
     }
 
-    private async Task UpdateFromWysiwyg(bool refreshPreview = true)
+    private async Task UpdateFromWysiwyg()
     {
         try
         {
@@ -736,11 +832,14 @@
 
             if (newMd != _document.RawMarkdown)
             {
+                await CheckpointAsync(force: false);
+
                 // Directly set the field to avoid intermediate Undo stack pushes from the property setter
                 // while the user is still typing in the visual view.
                 _document.SetContentSilent(newMd);
-                
-                if (refreshPreview) RefreshPreview();
+
+                // Keep _renderedHtml/_stats honest without rewriting the live DOM.
+                RefreshPreview(pushToDom: false);
                 await NotifyChange();
             }
         }
@@ -798,7 +897,7 @@
 
     private async Task NotifyChange()
     {
-        _lastNotifiedValue = _document.RawMarkdown;
+        _pendingNotifiedValue = _document.RawMarkdown;
         await ValueChanged.InvokeAsync(_document.RawMarkdown);
         await OnChange.InvokeAsync(_document.RawMarkdown);
     }
@@ -812,6 +911,98 @@
             await UpdateFromWysiwyg();
         else
             await NotifyChange();
+    }
+
+    // ── Undo / redo ───────────────────────────────────────────
+
+    /// <summary>
+    /// Snapshot the current content (+ caret) onto the undo stack.
+    /// Typing within <see cref="CheckpointCoalesceWindow"/> merges into one entry unless <paramref name="force"/> is set.
+    /// </summary>
+    private async Task CheckpointAsync(bool force)
+    {
+        var now = DateTime.UtcNow;
+        if (!force && now - _lastCheckpointUtc < CheckpointCoalesceWindow && _document.CanUndo)
+            return;
+
+        var (start, end) = await GetCaretOffsetsAsync();
+        _document.PushHistory(start, end);
+        _lastCheckpointUtc = now;
+    }
+
+    private async Task ApplyHistoryAsync(bool undo)
+    {
+        if (_notifyDebouncer is not null) await _notifyDebouncer.FlushAsync();
+        if (_wysiwygDebouncer is not null) await _wysiwygDebouncer.FlushAsync();
+
+        // Make sure visual-mode DOM edits are reflected before we snapshot the current state onto redo.
+        if (_mode == EditorMode.Visual)
+        {
+            try
+            {
+                string liveMd = await JS.InvokeAsync<string>("WysiMdBlazor.getMarkdownFromHtml", _previewId);
+                if (liveMd != _document.RawMarkdown)
+                    _document.SetContentSilent(liveMd);
+            }
+            catch { }
+        }
+
+        var (currentStart, currentEnd) = await GetCaretOffsetsAsync();
+        var entry = undo
+            ? _document.Undo(currentStart, currentEnd)
+            : _document.Redo(currentStart, currentEnd);
+
+        if (entry is null) return;
+
+        _lastCheckpointUtc = DateTime.MinValue;
+        RefreshPreview(pushToDom: true);
+
+        int caretStart = entry.Value.CaretStart;
+        int caretEnd = entry.Value.CaretEnd;
+
+        if (_mode == EditorMode.Visual && RendererInfo.IsInteractive)
+        {
+            _previewHtmlNeedsPush = false;
+            _syncedHtml = _renderedHtml;
+            await SafeJs("WysiMdBlazor.setPreviewHtml", _previewId, _renderedHtml);
+
+            // HTML character offsets — unknown (-1) means end of content; JS clamps to available text.
+            if (caretStart < 0) caretStart = 1_000_000;
+            if (caretEnd < 0) caretEnd = caretStart;
+            await SafeJs("WysiMdBlazor.setCaretOffset", _previewId, caretStart, caretEnd);
+        }
+        else if (_mode == EditorMode.Raw)
+        {
+            if (caretStart < 0) caretStart = entry.Value.Content.Length;
+            if (caretEnd < 0) caretEnd = caretStart;
+            caretStart = Math.Clamp(caretStart, 0, entry.Value.Content.Length);
+            caretEnd = Math.Clamp(caretEnd, 0, entry.Value.Content.Length);
+            await SetValueAndSelection(entry.Value.Content, caretStart, caretEnd);
+        }
+
+        await NotifyChange();
+        StateHasChanged();
+    }
+
+    private async Task<(int start, int end)> GetCaretOffsetsAsync()
+    {
+        try
+        {
+            if (_mode == EditorMode.Visual)
+            {
+                var result = await JS.InvokeAsync<CaretOffsetResult?>(
+                    "WysiMdBlazor.getCaretOffset", _previewId);
+                if (result is not null)
+                    return (result.Start, result.End);
+            }
+            else
+            {
+                return await GetSelectionRange();
+            }
+        }
+        catch { }
+
+        return (-1, -1);
     }
 
     // ── Smart list continuation ───────────────────────────────
@@ -882,7 +1073,6 @@
     {
         if (_notifyDebouncer is not null) await _notifyDebouncer.DisposeAsync();
         if (_wysiwygDebouncer is not null) await _wysiwygDebouncer.DisposeAsync();
-        _historyTimer?.Stop(); _historyTimer?.Dispose();
         _dotnetRef?.Dispose();
         if (_jsModule is not null)
         {
@@ -893,4 +1083,5 @@
     // ── JS interop record ────────────────────────────────────
 
     private record SelectionResult(int Start, int End, string Value);
+    private record CaretOffsetResult(int Start, int End);
 }
