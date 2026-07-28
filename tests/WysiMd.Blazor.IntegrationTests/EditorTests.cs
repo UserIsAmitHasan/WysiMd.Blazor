@@ -122,13 +122,18 @@ public class EditorTests : PageTest
         await SwitchToRawMode();
 
         await RawTextarea.FillAsync("version one");
+        // Edits within 1 s coalesce into a single undo checkpoint — wait the
+        // window out so "version one" becomes its own history entry.
+        await Page.WaitForTimeoutAsync(1200);
         await RawTextarea.FillAsync("version two");
 
         await ToolbarBtn("undo").ClickAsync();
-
         var value = await RawTextarea.InputValueAsync();
-        Assert.IsTrue(value == "version one" || value.Contains("version"),
-            $"Expected previous content but got: {value}");
+        Assert.AreEqual("version one", value);
+
+        await ToolbarBtn("redo").ClickAsync();
+        value = await RawTextarea.InputValueAsync();
+        Assert.AreEqual("version two", value);
     }
 
     // -----------------------------------------------------------------------
